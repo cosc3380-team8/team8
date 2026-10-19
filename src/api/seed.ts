@@ -1,0 +1,132 @@
+// Demo data so the app has something to show on first run.
+// Dates are relative to "today" so overdue / due-soon examples always make sense.
+
+import { DBState, emptyState, nextId } from './state';
+import { addDays, today } from '../utils/dates';
+import { checkout, log, payFine, placeHold, returnLoan } from './rules';
+import type { ItemKind } from '../types';
+
+export function buildSeed(): DBState {
+  const s = emptyState();
+  const t = today();
+  const ago = (n: number) => addDays(t, -n);
+
+  // Staff
+  s.staff.push(
+    { staff_id: nextId(s, 'staff'), first_name: 'Clark', last_name: 'Nguyen', email: 'clark@library.edu', password: 'staff123', is_admin: false, is_active: true },
+    { staff_id: nextId(s, 'staff'), first_name: 'Azael', last_name: 'Aaron', email: 'azael@library.edu', password: 'admin123', is_admin: true, is_active: true },
+  );
+
+  // Members (patrons)
+  const people: [string, string, string, 'student' | 'faculty', string][] = [
+    ['Esther', 'Burns', 'esther@uni.edu', 'student', 'student123'],
+    ['Ben', 'Carter', 'ben@uni.edu', 'student', 'student123'],
+    ['Aliza', 'Salman', 'aliza@uni.edu', 'faculty', 'faculty123'],
+    ['Dan', 'Okafor', 'dan@uni.edu', 'faculty', 'faculty123'],
+    ['Uriel', 'Smith', 'uriel@uni.edu', 'student', 'student123'],
+  ];
+  people.forEach(([first_name, last_name, email, role, password]) =>
+    s.members.push({ user_id: nextId(s, 'members'), first_name, last_name, email, password, role, is_active: true }));
+
+  // Authors + books + copies
+  [['Harper', 'Lee'], ['George', 'Orwell'], ['Jane', 'Austen'], ['Mary', 'Shelley'], ['Fyodor', 'Dostoevsky'], ['Albert', 'Camus'], ['Oscar', 'Wilde'], ['F. Scott', 'Fitzgerald'], ['Bram', 'Stoker'], ['Alexandre', 'Dumas'], ['Neil', 'Gaiman'], ['Lewis', 'Carroll'], ['Ramez', 'Elmasri'], ['Shamkant B.', 'Navathe'], ['William', 'Stallings']]
+    .forEach(([first_name, last_name]) => s.authors.push({ author_id: nextId(s, 'authors'), first_name, last_name }));
+
+  // [title, publisher, author ids in order, copies]
+  const books: [string, string, number[], number][] = [
+    ['To Kill a Mockingbird', 'Harper Perennial', [1], 2],
+    ['1984', 'Signet Classics', [2], 2],
+    ['Animal Farm', 'Signet Classics', [2], 1],
+    ['Pride and Prejudice', 'Penguin Classics', [3], 2],
+    ['Frankenstein', 'Penguin Classics', [4], 2],
+    ['Crime and Punishment', 'Vintage Classics', [5], 1],
+    ['The Stranger', 'Vintage International', [6], 1],
+    ['The Picture of Dorian Gray', 'Penguin Classics', [7], 3],
+    ['The Great Gatsby', 'Scribner', [8], 2],
+    ['Dracula', 'Penguin Classics', [9], 2],
+    ['The Count of Monte Cristo', 'Penguin Classics', [10], 2],
+    ['Coraline', 'HarperCollins', [11], 2],
+    ['Alice in Wonderland', 'Macmillan', [12], 2],
+    ['Fundamentals of Database Systems, 7th Edition', 'Pearson', [13, 14], 3],
+    ['Operating Systems: Internals and Design Principles, 9th Edition', 'Prentice Hall, 2017', [15], 3],
+    ['The Idiot', 'Penguin Classics', [5], 2],
+    ['The Brothers Karamazov', 'Vintage Classics', [5], 2],
+    ['White Nights', 'Penguin Classics', [5], 1],
+  ];
+  books.forEach(([title, publisher, author_ids, copies]) => {
+    const book_id = nextId(s, 'books');
+    s.books.push({ book_id, title, publisher, is_active: true });
+    author_ids.forEach((author_id, i) => s.bookAuthors.push({ book_id, author_id, author_order: i + 1 }));
+    for (let i = 0; i < copies; i++) s.bookCopies.push({ copy_id: nextId(s, 'bookCopies'), book_id, status: 'available' });
+  });
+
+  // Media + copies
+  const media: [string, 'DVD' | 'Audiobook' | 'Device', number][] = [
+    ['The Great Gatsby (Audiobook)', 'Audiobook', 2],
+    ['Coraline (DVD)', 'DVD', 2],
+    ['Graphing Calculator TI-84', 'Device', 2],
+    ['Noise-Cancelling Headphones', 'Device', 1],
+    ['The Picture of Dorian Gray (Audiobook)', 'Audiobook', 2],
+    ['Alice in Wonderland (DVD)', 'DVD', 2],
+  ];
+  media.forEach(([title, media_type, copies]) => {
+    const media_id = nextId(s, 'media');
+    s.media.push({ media_id, title, media_type, is_active: true });
+    for (let i = 0; i < copies; i++) s.mediaCopies.push({ media_copy_id: nextId(s, 'mediaCopies'), media_id, status: 'available' });
+  });
+
+  // Rooms
+  [['101', 1, 4], ['102', 1, 6], ['201', 2, 8], ['202', 2, 10]].forEach(([room_number, room_level, capacity]) =>
+    s.rooms.push({ room_id: nextId(s, 'rooms'), room_number: String(room_number), room_level: Number(room_level), capacity: Number(capacity), is_active: true }));
+
+  // History: [member, kind, item, borrowed N days ago, returned N days ago]
+  const history: [number, ItemKind, number, number, number][] = [
+    [1, 'book', 4, 58, 50],
+    [1, 'book', 1, 55, 30], // 25 days held, 5 late -> $5 fine (paid below)
+    [2, 'book', 2, 45, 20], // 5 late -> $5 fine (unpaid)
+    [2, 'media', 1, 40, 35],
+    [3, 'book', 8, 50, 25],
+    [4, 'book', 5, 60, 12], // 18 days late -> $7 fine (unpaid)
+    [4, 'media', 3, 30, 28],
+    [1, 'book', 2, 30, 25],
+    [2, 'book', 1, 20, 10],
+    [3, 'book', 5, 15, 8],
+    [2, 'book', 5, 10, 6],
+    [3, 'media', 2, 14, 9],
+  ];
+  const paidLoanIds: number[] = [];
+  history.forEach(([user, kind, item, b, r], i) => {
+    const loan = checkout(s, user, kind, item, ago(b));
+    returnLoan(s, loan.loan_id, ago(r));
+    if (i === 1) paidLoanIds.push(loan.loan_id);
+  });
+  paidLoanIds.forEach((id) => {
+    const fine = s.fines.find((f) => f.loan_id === id);
+    if (fine) payFine(s, fine.fine_id, 'Card', ago(29));
+  });
+
+  // Active loans (Esther is at 3-item student limit; one is due tomorrow, one overdue)
+  checkout(s, 1, 'book', 5, ago(5));
+  checkout(s, 1, 'book', 2, ago(19));
+  checkout(s, 1, 'book', 6, ago(25)); // overdue (Crime and Punishment)
+  checkout(s, 2, 'book', 3, ago(2));
+  checkout(s, 2, 'media', 2, ago(4));
+  checkout(s, 3, 'book', 14, ago(40)); // faculty, overdue (Fundamentals of Database Systems)
+  checkout(s, 4, 'book', 7, ago(3));
+  checkout(s, 5, 'media', 4, ago(1)); // Uriel
+
+  // Holds: queues on single-copy titles that are out
+  placeHold(s, 2, 'book', 7, ago(2));
+  placeHold(s, 3, 'book', 7, ago(1));
+  placeHold(s, 3, 'book', 6, t);
+
+  // Room reservations
+  s.reservations.push(
+    { reservation_id: nextId(s, 'reservations'), room_id: 1, user_id: 1, start_time: `${addDays(t, 1)}T10:00`, end_time: `${addDays(t, 1)}T12:00` },
+    { reservation_id: nextId(s, 'reservations'), room_id: 3, user_id: 3, start_time: `${addDays(t, 1)}T14:00`, end_time: `${addDays(t, 1)}T16:00` },
+  );
+
+  s.audit = [];
+  log(s, 'seed', 'all tables', 'Demo data loaded.');
+  return s;
+}
