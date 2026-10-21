@@ -4,7 +4,7 @@ import {
 } from './config.js';
 import { createDatabaseConnection } from './database.js';
 import { listBooks } from './books.js';
-import { readfile } from 'fs/promises';
+import { readFile } from 'fs/promises';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
