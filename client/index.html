@@ -11,7 +11,7 @@
 		<script type="module">
 			const status = document.querySelector("#status");
 			const list = document.querySelector("#books");
-			const response = await fetch("http://localhost:3000/books");
+			const response = await fetch("/books");
 
 			async function loadBooks() {
 				try {
