@@ -46,3 +46,66 @@ export async function listBooks(database, search = '') {
 
     return result.recordset;
 }
+
+export async function addBook(database, book) {
+    const { title, publisher = null, isbn, is_active } = book;
+    try {
+        const result = await database.poolconnection
+            .request()
+            .input('book_id', sql.Int, book_id)
+            .input('title', sql.NVarChar(200), title)
+            .input('publisher', sql.NVarChar(200), publisher)
+            .input('isbn', sql.NVarChar(100), isbn)
+            .input('is_active', sql.Bit, is_active)
+            .query(`
+                INSERT INTO book (book_id, title, publisher, isbn, is_active)
+                VALUES (@book_id, @title, @publisher, @isbn, @is_active)
+            `);
+        return result;
+    } catch (error) {
+        console.error('Error adding book:', error);
+        throw error;
+    }
+}
+
+export async function updateBook(database, book) {
+    const { book_id, title, publisher, isbn, is_active } = book;
+    try {
+        const result = await database.poolconnection
+        .request()
+        .input('book_id', sql.Int, book_id)
+        .input('title', sql.NVarChar(200), title)
+        .input('publisher', sql.NVarChar(200), publisher)
+        .input('isbn', sql.NVarChar(100), isbn)
+        .input('is_active', sql.Bit, is_active)
+        .query(`
+            UPDATE book
+            SET title = @title,
+                publisher = @publisher,
+                isbn = @isbn,
+                is_active = @is_active
+            WHERE book_id = @book_id
+        `);
+        return result;
+    } catch (error) {
+        console.error('Error updating book:', error);
+        throw error;
+    }
+}
+
+export async function deleteBook(database, bookId) {
+    try {
+        const result = await database.poolconnection
+        .request()
+        .input('book_id', sql.Int, bookId)
+        .query(`
+            UPDATE book
+            SET is_active = 0
+            WHERE book_id = @book_id
+        `);
+        return result;
+    } catch (error) {
+        console.error('Error deleting book:', error);
+        throw error;
+    }
+}
