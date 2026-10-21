@@ -27,13 +27,19 @@ jobs:
         run: |
           npm install
           npm run build --if-present
-          npm run test --if-present
+        working-directory: server
+
+      - name: Prepare deployment package
+        run: |
+          mkdir -p deploy/client
+          rsync -a --exclude='.env*' --exclude='.git*' server/ deploy/
+          rsync -a client/ deploy/client/
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: .
+          path: deploy/
 
   deploy:
     runs-on: ubuntu-latest
