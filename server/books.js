@@ -9,7 +9,7 @@ export async function listBooks(database, search = '') {
         throw error;
     }
 
-    const result = await database
+    const result = await database.poolconnection
         .request()
         .input('search', sql.NVarChar(100), term)
         .query(`
