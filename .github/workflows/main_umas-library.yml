@@ -23,17 +23,23 @@ jobs:
         with:
           node-version: '26.x'
 
-      - name: npm install, build, and test
+      - name: Build server
         run: |
           npm install
           npm run build --if-present
         working-directory: server
 
+      - name: Build client
+        run: |
+          npm install
+          npm run build
+        working-directory: client
+
       - name: Prepare deployment package
         run: |
           mkdir -p deploy/client
           rsync -a --exclude='.env*' --exclude='.git*' server/ deploy/
-          rsync -a client/ deploy/client/
+          rsync -a client/dist/ deploy/client/
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
