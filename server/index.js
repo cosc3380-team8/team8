@@ -9,7 +9,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const port = Number(process.env.PORT) || 3000;
-const database = await createDatabaseConnection(databaseConfig);
+const database = await createDatabaseConnection();
 const appDir = dirname(fileURLToPath(import.meta.url));
 
 // Create the server and handle requests
