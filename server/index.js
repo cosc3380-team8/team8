@@ -12,7 +12,7 @@ const port = Number(process.env.PORT) || 3000;
 const database = await createDatabaseConnection(databaseConfig);
 const appDir = dirname(fileURLToPath(import.meta.url));
 
-// Create the server and handle requests
+// Create the server and handle book requests
 const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
 
