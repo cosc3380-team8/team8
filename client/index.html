@@ -1,42 +1,13 @@
 <!doctype html>
-<html>
-	<head>
-		<title>Uma's Library</title>
-	</head>
-	<body>
-		<h1 id="header">Library Books</h1>
-		<p id="status">Loading books...</p>
-		<ul id="books"></ul>
-		
-		<script type="module">
-			const status = document.querySelector("#status");
-			const list = document.querySelector("#books");
-			const response = await fetch("/books");
-
-			async function loadBooks() {
-				try {
-					if (!response.ok) {
-						throw new Error(`Request failed: ${response.status}`);
-					}
-
-					const books = await response.json();
-					if (!Array.isArray(books)) {
-						throw new Error("Expected /books to return a JSON array.");
-					}
-
-					status.textContent = books.length ? "" : "No books found.";
-
-					for (const book of books) {
-						const item = document.createElement("li");
-						item.textContent = `${book.title ?? "Untitled"} - ${book.author_name ?? "Unknown author"}`;
-						list.append(item);
-					}
-				} catch (error) {
-					status.textContent = `Could not load books: ${error.message}`;
-				}
-			}
-
-			loadBooks();
-		</script>
-	</body>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/mascot.png" />
+    <title>Uma's Library</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>
