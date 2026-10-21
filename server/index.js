@@ -4,13 +4,34 @@ import {
 } from './config.js';
 import { createDatabaseConnection } from './database.js';
 import { listBooks } from './books.js';
+import { readfile } from 'fs/promises';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 
 const port = Number(process.env.PORT) || 3000;
 const database = await createDatabaseConnection(databaseConfig);
+const appDir = dirname(fileURLToPath(import.meta.url));
 
 // Create the server and handle requests
 const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
+
+    if (req.method == "GET" && url.pathname === '/') {
+        try {
+            const html = await readFile(
+                join(appDir, 'client', 'index.html'),
+                'utf8'
+            );
+
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.end(html);
+        } catch (error) {
+            console.error('Could not read client/index.html:', error);
+            res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end('Could not load the page');
+        }
+        return;
+    }
 
     if (req.method === 'GET' && url.pathname === '/books') {
         try {
