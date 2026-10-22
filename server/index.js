@@ -51,7 +51,7 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    if (req === 'GET') {
+    if (req.method === 'GET') {
         try {
             const pathname = decodeURIComponent(url.pathname);
             const clientDir = join(appDir, 'client');
