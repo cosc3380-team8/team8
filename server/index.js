@@ -16,6 +16,7 @@ const appDir = dirname(fileURLToPath(import.meta.url));
 const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
 
+    // Serve the frontend entry point so the browser can load the app.
     if (req.method == "GET" && url.pathname === '/') {
         try {
             const html = await readFile(
@@ -33,6 +34,7 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
+    // Return the book list as JSON for the client's fetch('/books') request.
     if (req.method === 'GET' && url.pathname === '/books') {
         try {
             const books = await listBooks(database, url.searchParams.get('search') || '');
@@ -51,6 +53,8 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
+    // Serve the built frontend files (JS, CSS, images) from the client folder.
+    // Vite serves these automatically in development; the production Node server must serve them here.
     if (req.method === 'GET') {
         try {
             const pathname = decodeURIComponent(url.pathname);
