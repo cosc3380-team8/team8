@@ -90,8 +90,9 @@ const authorsOf = (s: DBState, bookId: number): Author[] =>
 const joinNames = (names: string[]) =>
   names.length <= 2 ? names.join(' and ') : `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
 
+// List all books
 export const listBooks = async (): Promise<BookView[]> => {
-  const response = await fetch('http://localhost:3000/api/books');
+  const response = await fetch('/books');
   if (!response.ok) {
     throw new Error('Failed to fetch books');
   }
