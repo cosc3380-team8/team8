@@ -91,18 +91,12 @@ const joinNames = (names: string[]) =>
   names.length <= 2 ? names.join(' and ') : `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
 
 export const listBooks = (): Promise<BookView[]> =>
-  run((s) =>
-    s.books.map((b) => {
-      const copies = s.bookCopies.filter((c) => c.book_id === b.book_id);
-      const authors = authorsOf(s, b.book_id);
-      return {
-        ...b,
-        author_name: authors.length ? joinNames(authors.map(fullName)) : 'Unknown',
-        author_ids: authors.map((a) => a.author_id),
-        total_copies: copies.length,
-        available_copies: copies.filter((c) => c.status === 'available').length,
-      };
-    }),
+  const response = await fetch('http://localhost:3000/api/books');
+  if (!response.ok) {
+    throw new Error('Failed to fetch books');
+  }
+
+  return response.json() as Promise<BookView[]>;
   );
 
 export const listMedia = (): Promise<MediaView[]> =>
