@@ -5,7 +5,7 @@ import {
 import { createDatabaseConnection } from './database.js';
 import { listBooks } from './books.js';
 import { readFile } from 'fs/promises';
-import { dirname, join } from 'path';
+import { dirname, extname, join, resolve, sep } from 'path';
 import { fileURLToPath } from 'url';
 
 const port = Number(process.env.PORT) || 3000;
@@ -47,6 +47,42 @@ const server = http.createServer(async (req, res) => {
                     ? error.message
                     : 'An error occurred while fetching books.'
              }));
+        }
+        return;
+    }
+
+    if (req === 'GET') {
+        try {
+            const pathname = decodeURIComponent(url.pathname);
+            const clientDir = join(appDir, 'client');
+            const filePath = resolve(clientDir, `.${pathname}`);
+
+            // Prevent requests from escaping
+            if (filePath !== clientDir && !filePath.startsWith(clientDir + sep)) {
+                res.writeHead(403);
+                res.end('Forbidden');
+                return;
+            }
+
+            const file = await readFile(filePath);
+            const contentTypes = {
+                '.css': 'text/css; charset=utf-8',
+                '.html': 'text/html; charset=utf-8',
+                '.js': 'text/javascript; charset=utf-8',
+                '.json': 'application/json; charset=utf-8',
+                '.png': 'image/png',
+                '.svg': 'image/svg+xml',
+                '.ico': 'image/x-icon',
+            };
+
+            res.writeHead(200, { 
+                'Content-Type': contentTypes[extname(filePath)] || 'application/octet-stream', 
+            });
+            res.end(file);
+        } catch (error) {
+            console.error('Could not serve client file:', url.pathname, error);
+            res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end('Not found');
         }
         return;
     }
