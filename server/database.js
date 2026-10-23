@@ -36,7 +36,7 @@ export default class Database {
     }
 }
 
-export const createDatabaseConnection = async (databaseConfig) => {
+export async function createDatabaseConnection(databaseConfig) {
   database = new Database(databaseConfig);
   await database.connect();
   return database;
