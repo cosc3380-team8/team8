@@ -10,7 +10,9 @@ import { fileURLToPath } from 'url';
 
 const port = Number(process.env.PORT) || 3000;
 const database = await createDatabaseConnection(databaseConfig);
-if (!database) throw new Error('Database connection pool was not created');
+if (!database || typeof database.request !== 'function') {
+    throw new Error('Database connection did not return a SQL pool');
+}
 const appDir = dirname(fileURLToPath(import.meta.url));
 
 // Create the server and handle book requests
