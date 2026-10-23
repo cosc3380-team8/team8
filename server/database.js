@@ -1,11 +1,7 @@
 import sql from 'mssql';
 
-let database = null;
-
 export default class Database {
     config = {};
-    poolconnection = null;
-    connected = false;
 
     constructor(config) {
         this.config = config;
@@ -13,31 +9,17 @@ export default class Database {
 
     async connect() {
         try {
-            this.poolconnection = await sql.connect(this.config);
-            this.connected = true;
+            const pool = await sql.connect(this.config);
             console.log('Database connected successfully');
-            return this.poolconnection;
+            return pool;
         } catch (error) {
             console.error('Error connecting to the database: ', error);
-            this.connected = false;
-        }
-    }
-
-    async disconnect() {
-        try {
-            if (this.connected) {
-                await this.poolconnection.close();
-                this.connected = false;
-                console.log('Database disconnected successfully.');
-            }
-        } catch (error) {
-            console.error('Error disconnecting from the database', error);
+            throw error;
         }
     }
 }
 
 export async function createDatabaseConnection(databaseConfig) {
-  database = new Database(databaseConfig);
-  await database.connect();
-  return database;
+  const database = new Database(databaseConfig);
+  return await database.connect();
 };
