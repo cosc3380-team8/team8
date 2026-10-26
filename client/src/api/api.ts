@@ -92,7 +92,7 @@ const joinNames = (names: string[]) =>
 
 // List all books
 export const listBooks = async (): Promise<BookView[]> => {
-  const response = await fetch('/books');
+  const response = await fetch('https://umas-library-server.vercel.app/books');
   if (!response.ok) {
     throw new Error('Failed to fetch books');
   }
