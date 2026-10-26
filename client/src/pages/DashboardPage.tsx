@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import * as api from '../api/api';
 import { useAuth } from '../auth/AuthContext';
 import { LIMITS, STUDENT_LIMIT_MESSAGE } from '../api/rules';
@@ -25,8 +26,11 @@ function PatronDashboard() {
   const holds = useLoad(() => api.listHolds({ userId: uid, activeOnly: true }), [uid]);
   const fines = useLoad(() => api.listFines(uid), [uid]);
   const rooms = useLoad(() => api.listReservations(uid), [uid]);
+  const notes = useLoad(() => api.listNotifications(uid), [uid]);
   const { run, banner } = useAction();
   const reloadAll = () => { loans.reload(); holds.reload(); fines.reload(); rooms.reload(); };
+  const unread = (notes.data ?? []).filter((n) => !n.is_read);
+  const unpaid = (fines.data ?? []).filter((f) => f.paid_status === 'unpaid');
 
   const active = loans.data ?? [];
   const atLimit = active.length >= limit.maxItems;
@@ -43,6 +47,17 @@ function PatronDashboard() {
           {l.title} must be returned {l.days_until_due === 0 ? 'today' : `in ${l.days_until_due} day${l.days_until_due === 1 ? '' : 's'}`}.
         </Alert>
       ))}
+      {unread.length > 0 && (
+        <Alert kind="info">
+          You have {unread.length} new notification{unread.length === 1 ? '' : 's'}: {unread[0].message}{' '}
+          <Link to="/notifications">See all</Link>
+        </Alert>
+      )}
+      {unpaid.length > 0 && (
+        <Alert kind="warning">
+          You owe {money(unpaid.reduce((a, f) => a + f.amount, 0))} in fines. Fines are paid in person at the front desk (cash, card or check), and you will get a receipt.
+        </Alert>
+      )}
       {atLimit && <Alert kind="info">{role === 'student' ? STUDENT_LIMIT_MESSAGE : `You have reached the faculty limit of ${limit.maxItems} items.`}</Alert>}
 
       <Card title={`Items on loan (${active.length}/${limit.maxItems})`}>
@@ -72,13 +87,13 @@ function PatronDashboard() {
             { header: 'Item', cell: (f) => f.title },
             { header: 'Returned', cell: (f) => fmtDate(f.return_date) },
             { header: 'Amount', cell: (f) => money(f.amount) },
-            { header: 'Status', cell: (f) => f.paid_status === 'paid' ? <Badge tone="green">Paid · {f.receipt_code}</Badge> : <Badge tone="red">Unpaid</Badge> },
-            { header: '', cell: (f) => f.paid_status === 'unpaid' && <button className="btn small primary" onClick={() => run(() => api.doPayFine(f.fine_id, 'Online card'), 'Payment received. Receipt issued.', reloadAll)}>Pay online</button> },
+            { header: 'Status', cell: (f) => f.paid_status === 'paid' ? <Badge tone="green">Paid · {f.receipt_code}</Badge> : <Badge tone="red">Unpaid · pay at the desk</Badge> },
+            { header: '', cell: (f) => f.paid_status === 'paid' && <Link className="btn small" to="/receipts">View receipt</Link> },
           ]} />
       </Card>
 
       <Card title="My room reservations">
-        <DataTable rows={rooms.data ?? []} empty="No reservations. Book one on the Study Rooms page."
+        <DataTable rows={(rooms.data ?? []).filter((r) => !r.archived)} empty="No upcoming reservations. Book one on the Study Rooms page."
           columns={[
             { header: 'Room', cell: (r) => r.room_number },
             { header: 'From', cell: (r) => fmtDateTime(r.start_time) },

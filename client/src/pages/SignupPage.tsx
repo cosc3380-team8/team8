@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { Alert } from '../components/ui';
+import { MascotCloud, Sky } from '../components/Sky';
 
 export default function SignupPage() {
   const { signup } = useAuth();
@@ -33,8 +34,10 @@ export default function SignupPage() {
 
   return (
     <div className="login-page">
+      <Sky />
+      <div className="login-wrap">
+      <MascotCloud />
       <div className="login-card">
-        <img className="login-mascot" src="/mascot.png" alt="Uma's Library cougar mascot" />
         <h1>Create an account</h1>
         <p className="muted">Sign up to borrow books, place holds and book study rooms.</p>
         <form onSubmit={submit} className="form">
@@ -64,6 +67,7 @@ export default function SignupPage() {
           <button className="btn primary" disabled={busy}>{busy ? 'Creating account…' : 'Create account'}</button>
         </form>
         <p className="auth-switch">Already have an account? <Link to="/login">Sign in</Link></p>
+      </div>
       </div>
     </div>
   );

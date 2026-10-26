@@ -8,7 +8,7 @@ export interface ParamDef { name: string; label: string; kind: 'member' | 'item'
 export interface QueryDef {
   id: string; title: string; description: string; sql: string; params: ParamDef[];
 }
-export interface ReportDef { id: string; title: string; description: string; sql: string }
+
 
 const LOAN_ITEM_JOIN = `FROM loans l
 JOIN members u            ON u.user_id = l.user_id
@@ -83,29 +83,107 @@ ORDER BY CASE h.status WHEN 'ready' THEN 0 ELSE 1 END, h.request_date, h.hold_id
   },
 ];
 
+export type FilterKey = 'from' | 'to' | 'userId' | 'role' | 'authorId' | 'keyword' | 'kind';
+export interface ReportFilters {
+  from?: string; to?: string; userId?: string; role?: string; authorId?: string; keyword?: string; kind?: string;
+}
+export interface ReportDef {
+  id: string; title: string; description: string; filters: FilterKey[];
+  dateLabel?: string;
+  sql: (f: ReportFilters) => string;
+}
+
+const LOAN_FILTERS: FilterKey[] = ['from', 'to', 'userId', 'role', 'authorId', 'keyword', 'kind'];
+
+// Builds the WHERE lines for the filters that are filled in, so the SQL shown matches what ran.
+function loanWhere(f: ReportFilters, dateCol: string, extra: string[] = []): string {
+  const w = [...extra];
+  if (f.from) w.push(`${dateCol} >= @from`);
+  if (f.to) w.push(`${dateCol} <= @to`);
+  if (f.userId) w.push('l.user_id = @userId');
+  if (f.role) w.push('u.role = @role');
+  if (f.kind === 'book') w.push('l.book_copy_id IS NOT NULL');
+  if (f.kind === 'media') w.push('l.media_copy_id IS NOT NULL');
+  if (f.keyword) w.push("COALESCE(b.title, mi.title) LIKE '%' + @keyword + '%'");
+  if (f.authorId) w.push('EXISTS (SELECT 1 FROM book_authors ba WHERE ba.book_id = b.book_id AND ba.author_id = @authorId)');
+  return w.length ? `WHERE ${w.join('\n  AND ')}` : '';
+}
+
+function itemWhere(f: ReportFilters, titleCol: string, isBook: boolean): string {
+  const w: string[] = [`${isBook ? 'b' : 'mi'}.is_active = 1`];
+  if (f.keyword) w.push(`${titleCol} LIKE '%' + @keyword + '%'`);
+  if (isBook && f.authorId) w.push('EXISTS (SELECT 1 FROM book_authors ba WHERE ba.book_id = b.book_id AND ba.author_id = @authorId)');
+  return `WHERE ${w.join('\n  AND ')}`;
+}
+
 export const REPORTS: ReportDef[] = [
   {
     id: 'popular',
     title: 'Most borrowed titles',
-    description: 'Top 10 books and media by number of loans.',
-    sql: `SELECT TOP 10 COALESCE(b.title, mi.title) AS title,
+    description: 'Top 10 titles by number of loans. Pick an author to see their most borrowed books, or a keyword to see books with that word in the title.',
+    filters: LOAN_FILTERS,
+    dateLabel: 'Borrowed',
+    sql: (f) => `SELECT TOP 10 COALESCE(b.title, mi.title) AS title,
        CASE WHEN l.book_copy_id IS NOT NULL THEN 'Book' ELSE 'Media' END AS item_type,
-       COUNT(*) AS times_borrowed
+       COUNT(*) AS times_borrowed,
+       COUNT(DISTINCT l.user_id) AS different_borrowers
 ${LOAN_ITEM_JOIN}
+${loanWhere(f, 'l.borrow_date')}
 GROUP BY COALESCE(b.title, mi.title), CASE WHEN l.book_copy_id IS NOT NULL THEN 'Book' ELSE 'Media' END
 ORDER BY times_borrowed DESC;`,
+  },
+  {
+    id: 'history',
+    title: 'Personalized loan history',
+    description: 'Every loan that matches the filters. Choose a member for their personal report.',
+    filters: LOAN_FILTERS,
+    dateLabel: 'Borrowed',
+    sql: (f) => `SELECT l.loan_id, u.first_name + ' ' + u.last_name AS member, u.role,
+       COALESCE(b.title, mi.title) AS title, b.isbn,
+       l.borrow_date, l.due_date, l.return_date,
+       CASE WHEN l.return_date IS NULL THEN 'On loan'
+            WHEN l.return_date > l.due_date THEN 'Returned late' ELSE 'Returned on time' END AS outcome,
+       f.amount AS fine
+${LOAN_ITEM_JOIN}
+LEFT JOIN fines f ON f.loan_id = l.loan_id
+${loanWhere(f, 'l.borrow_date')}
+ORDER BY l.borrow_date DESC;`,
+  },
+  {
+    id: 'authors',
+    title: 'Borrowing by author',
+    description: 'Which authors are borrowed most, and how many of their titles were borrowed.',
+    filters: ['from', 'to', 'userId', 'role', 'keyword'],
+    dateLabel: 'Borrowed',
+    sql: (f) => `SELECT a.first_name + ' ' + a.last_name AS author,
+       COUNT(*) AS loans,
+       COUNT(DISTINCT b.book_id) AS titles_borrowed
+${LOAN_ITEM_JOIN}
+JOIN book_authors ba ON ba.book_id = b.book_id
+JOIN authors a       ON a.author_id = ba.author_id
+${loanWhere({ ...f, kind: undefined, authorId: undefined }, 'l.borrow_date')}
+GROUP BY a.author_id, a.first_name, a.last_name
+ORDER BY loans DESC;`,
   },
   {
     id: 'fines',
     title: 'Fines by month',
     description: 'Fines assessed, collected and still outstanding, grouped by the month the item came back.',
-    sql: `SELECT FORMAT(l.return_date, 'yyyy-MM') AS month,
+    filters: LOAN_FILTERS,
+    dateLabel: 'Returned',
+    sql: (f) => `SELECT FORMAT(l.return_date, 'yyyy-MM') AS month,
        COUNT(f.fine_id) AS fines_issued,
        SUM(f.amount) AS assessed,
        SUM(CASE WHEN f.paid_status = 'paid'   THEN f.amount ELSE 0 END) AS collected,
        SUM(CASE WHEN f.paid_status = 'unpaid' THEN f.amount ELSE 0 END) AS outstanding
 FROM fines f
 JOIN loans l ON l.loan_id = f.loan_id
+JOIN members u ON u.user_id = l.user_id
+LEFT JOIN book_copies bc  ON bc.copy_id = l.book_copy_id
+LEFT JOIN books b         ON b.book_id = bc.book_id
+LEFT JOIN media_copies mc ON mc.media_copy_id = l.media_copy_id
+LEFT JOIN media_items mi  ON mi.media_id = mc.media_id
+${loanWhere(f, 'l.return_date')}
 GROUP BY FORMAT(l.return_date, 'yyyy-MM')
 ORDER BY month;`,
   },
@@ -113,7 +191,9 @@ ORDER BY month;`,
     id: 'activity',
     title: 'Borrowing activity by member role',
     description: 'Compares students and faculty: loan volume, current loans, overdue items and average loans per member.',
-    sql: `SELECT u.role,
+    filters: ['from', 'to', 'role', 'authorId', 'keyword', 'kind'],
+    dateLabel: 'Borrowed',
+    sql: (f) => `SELECT u.role,
        COUNT(DISTINCT u.user_id) AS members,
        COUNT(l.loan_id) AS total_loans,
        SUM(CASE WHEN l.return_date IS NULL THEN 1 ELSE 0 END) AS active_loans,
@@ -121,24 +201,37 @@ ORDER BY month;`,
        CAST(COUNT(l.loan_id) AS FLOAT) / COUNT(DISTINCT u.user_id) AS avg_loans_per_member
 FROM members u
 LEFT JOIN loans l ON l.user_id = u.user_id
-WHERE u.is_active = 1
+LEFT JOIN book_copies bc  ON bc.copy_id = l.book_copy_id
+LEFT JOIN books b         ON b.book_id = bc.book_id
+LEFT JOIN media_copies mc ON mc.media_copy_id = l.media_copy_id
+LEFT JOIN media_items mi  ON mi.media_id = mc.media_id
+${loanWhere(f, 'l.borrow_date', ['u.is_active = 1'])}
 GROUP BY u.role;`,
   },
   {
     id: 'inventory',
     title: 'Inventory status',
     description: 'Copies per title broken down by status (available, on loan, held for pickup).',
-    sql: `SELECT b.title, 'Book' AS item_type, COUNT(*) AS total,
+    filters: ['authorId', 'keyword', 'kind'],
+    sql: (f) => {
+      const books = `SELECT b.title, 'Book' AS item_type, COUNT(*) AS total,
        SUM(CASE WHEN c.status = 'available' THEN 1 ELSE 0 END) AS available,
        SUM(CASE WHEN c.status = 'loaned'    THEN 1 ELSE 0 END) AS on_loan,
        SUM(CASE WHEN c.status = 'held'      THEN 1 ELSE 0 END) AS held
 FROM books b JOIN book_copies c ON c.book_id = b.book_id
-WHERE b.is_active = 1
-GROUP BY b.title
-UNION ALL
-SELECT mi.title, 'Media', COUNT(*), 0, 0, 0
+${itemWhere(f, 'b.title', true)}
+GROUP BY b.title`;
+      const media = `SELECT mi.title, mi.media_type, COUNT(*),
+       SUM(CASE WHEN mc.status = 'available' THEN 1 ELSE 0 END),
+       SUM(CASE WHEN mc.status = 'loaned'    THEN 1 ELSE 0 END),
+       SUM(CASE WHEN mc.status = 'held'      THEN 1 ELSE 0 END)
 FROM media_items mi JOIN media_copies mc ON mc.media_id = mi.media_id
-WHERE mi.is_active = 1 GROUP BY mi.title;`,
+${itemWhere(f, 'mi.title', false)}
+GROUP BY mi.title, mi.media_type`;
+      if (f.kind === 'book' || f.authorId) return `${books};`;
+      if (f.kind === 'media') return `${media};`;
+      return `${books}\nUNION ALL\n${media};`;
+    },
   },
 ];
 
@@ -155,13 +248,21 @@ export async function runQuery(id: string, p: Params): Promise<TableResult> {
   }
 }
 
-export async function runReport(id: string): Promise<ReportResult> {
+export async function runReport(id: string, f: ReportFilters = {}): Promise<ReportResult> {
   const s = loadState();
+  const def = REPORTS.find((r) => r.id === id);
+  if (!def) throw new Error('Unknown report.');
+  if (f.from && f.to && f.from > f.to) throw new Error('The start date must be before the end date.');
+  // Ignore filters the chosen report does not support.
+  const used: ReportFilters = {};
+  def.filters.forEach((k) => { if (f[k]) used[k] = f[k]; });
   switch (id) {
-    case 'popular': return rPopular(s);
-    case 'fines': return rFines(s);
-    case 'activity': return rActivity(s);
-    case 'inventory': return rInventory(s);
+    case 'popular': return rPopular(s, used);
+    case 'history': return rHistory(s, used);
+    case 'authors': return rAuthors(s, used);
+    case 'fines': return rFines(s, used);
+    case 'activity': return rActivity(s, used);
+    case 'inventory': return rInventory(s, used);
     default: throw new Error('Unknown report.');
   }
 }
@@ -240,13 +341,40 @@ function qHoldQueue(s: DBState, item: string): TableResult {
   };
 }
 
-function rPopular(s: DBState): ReportResult {
-  const counts = new Map<string, { type: string; n: number }>();
-  s.loans.forEach((l) => {
+type LoanT = DBState['loans'][number];
+
+const bookHasAuthor = (s: DBState, bookId: number, authorId: number) =>
+  s.bookAuthors.some((ba) => ba.book_id === bookId && ba.author_id === authorId);
+
+function itemMatches(s: DBState, kind: 'book' | 'media', itemId: number, f: ReportFilters): boolean {
+  if (f.kind && f.kind !== kind) return false;
+  if (f.authorId && (kind !== 'book' || !bookHasAuthor(s, itemId, Number(f.authorId)))) return false;
+  if (f.keyword && !itemTitle(s, kind, itemId).toLowerCase().includes(f.keyword.trim().toLowerCase())) return false;
+  return true;
+}
+
+function loanMatches(s: DBState, l: LoanT, f: ReportFilters, date: string | null): boolean {
+  if ((f.from || f.to) && !date) return false;
+  if (f.from && date! < f.from) return false;
+  if (f.to && date! > f.to) return false;
+  if (f.userId && l.user_id !== Number(f.userId)) return false;
+  if (f.role && s.members.find((m) => m.user_id === l.user_id)?.role !== f.role) return false;
+  const i = loanItem(s, l);
+  return itemMatches(s, i.kind, i.itemId, f);
+}
+
+const filteredLoans = (s: DBState, f: ReportFilters) =>
+  s.loans.filter((l) => loanMatches(s, l, f, l.borrow_date));
+
+function rPopular(s: DBState, f: ReportFilters): ReportResult {
+  const loans = filteredLoans(s, f);
+  const counts = new Map<string, { type: string; n: number; who: Set<number> }>();
+  loans.forEach((l) => {
     const i = loanItem(s, l);
     const key = `${i.kind}:${i.itemId}`;
-    const cur = counts.get(key) ?? { type: i.kind === 'book' ? 'Book' : 'Media', n: 0 };
+    const cur = counts.get(key) ?? { type: i.kind === 'book' ? 'Book' : 'Media', n: 0, who: new Set<number>() };
     cur.n++;
+    cur.who.add(l.user_id);
     counts.set(key, cur);
   });
   const top = [...counts.entries()]
@@ -257,30 +385,87 @@ function rPopular(s: DBState): ReportResult {
     .sort((a, b) => b.n - a.n || a.title.localeCompare(b.title))
     .slice(0, 10);
   return {
-    columns: ['Title', 'Type', 'Times borrowed'],
-    rows: top.map((x) => [x.title, x.type, x.n]),
+    columns: ['Title', 'Type', 'Times borrowed', 'Different borrowers'],
+    rows: top.map((x) => [x.title, x.type, x.n, x.who.size]),
     stats: [
-      { label: 'Total loans', value: String(s.loans.length) },
+      { label: 'Matching loans', value: String(loans.length) },
       { label: 'Distinct titles borrowed', value: String(counts.size) },
     ],
     chart: { title: 'Times borrowed', labels: top.map((x) => x.title), values: top.map((x) => x.n) },
   };
 }
 
-function rFines(s: DBState): ReportResult {
+function rHistory(s: DBState, f: ReportFilters): ReportResult {
+  const loans = filteredLoans(s, f).sort((a, b) => b.borrow_date.localeCompare(a.borrow_date) || b.loan_id - a.loan_id);
+  const t = today();
+  let late = 0;
+  let fines = 0;
+  const rows = loans.map((l) => {
+    const m = s.members.find((x) => x.user_id === l.user_id)!;
+    const i = loanItem(s, l);
+    const fine = s.fines.find((x) => x.loan_id === l.loan_id);
+    const isbn = i.kind === 'book' ? s.books.find((b) => b.book_id === i.itemId)?.isbn || '—' : '—';
+    const outcome = l.return_date === null ? (l.due_date < t ? 'Overdue' : 'On loan')
+      : l.return_date > l.due_date ? 'Returned late' : 'Returned on time';
+    if (outcome === 'Returned late' || outcome === 'Overdue') late++;
+    if (fine) fines += fine.amount;
+    return [l.loan_id, name(m), i.title, isbn, fmtDate(l.borrow_date), fmtDate(l.due_date), fmtDate(l.return_date), outcome, fine ? money(fine.amount) : '—'];
+  });
+  return {
+    columns: ['Loan #', 'Member', 'Title', 'ISBN', 'Borrowed', 'Due', 'Returned', 'Outcome', 'Fine'],
+    rows,
+    stats: [
+      { label: 'Loans', value: String(loans.length) },
+      { label: 'Late or overdue', value: String(late) },
+      { label: 'Fines from these loans', value: money(fines) },
+    ],
+  };
+}
+
+function rAuthors(s: DBState, f: ReportFilters): ReportResult {
+  const loans = filteredLoans(s, { ...f, kind: 'book' });
+  const by = new Map<number, { n: number; titles: Set<number> }>();
+  loans.forEach((l) => {
+    const i = loanItem(s, l);
+    s.bookAuthors.filter((ba) => ba.book_id === i.itemId).forEach((ba) => {
+      const cur = by.get(ba.author_id) ?? { n: 0, titles: new Set<number>() };
+      cur.n++;
+      cur.titles.add(i.itemId);
+      by.set(ba.author_id, cur);
+    });
+  });
+  const list = [...by.entries()]
+    .map(([id, v]) => ({ author: name(s.authors.find((a) => a.author_id === id)!), ...v }))
+    .sort((a, b) => b.n - a.n || a.author.localeCompare(b.author));
+  return {
+    columns: ['Author', 'Loans', 'Titles borrowed'],
+    rows: list.map((x) => [x.author, x.n, x.titles.size]),
+    stats: [
+      { label: 'Book loans', value: String(loans.length) },
+      { label: 'Authors borrowed', value: String(list.length) },
+    ],
+    chart: { title: 'Loans per author', labels: list.slice(0, 10).map((x) => x.author), values: list.slice(0, 10).map((x) => x.n) },
+  };
+}
+
+function rFines(s: DBState, f: ReportFilters): ReportResult {
   const byMonth = new Map<string, { n: number; assessed: number; paid: number }>();
-  s.fines.forEach((f) => {
-    const loan = s.loans.find((l) => l.loan_id === f.loan_id)!;
+  const matching = s.fines.filter((fi) => {
+    const loan = s.loans.find((l) => l.loan_id === fi.loan_id)!;
+    return loanMatches(s, loan, f, loan.return_date);
+  });
+  matching.forEach((fi) => {
+    const loan = s.loans.find((l) => l.loan_id === fi.loan_id)!;
     const k = monthKey(loan.return_date ?? today());
     const cur = byMonth.get(k) ?? { n: 0, assessed: 0, paid: 0 };
     cur.n++;
-    cur.assessed += f.amount;
-    if (f.paid_status === 'paid') cur.paid += f.amount;
+    cur.assessed += fi.amount;
+    if (fi.paid_status === 'paid') cur.paid += fi.amount;
     byMonth.set(k, cur);
   });
   const months = [...byMonth.keys()].sort();
-  const total = s.fines.reduce((a, f) => a + f.amount, 0);
-  const paid = s.fines.filter((f) => f.paid_status === 'paid').reduce((a, f) => a + f.amount, 0);
+  const total = matching.reduce((a, x) => a + x.amount, 0);
+  const paid = matching.filter((x) => x.paid_status === 'paid').reduce((a, x) => a + x.amount, 0);
   return {
     columns: ['Month', 'Fines issued', 'Assessed', 'Collected', 'Outstanding'],
     rows: months.map((m) => {
@@ -296,13 +481,14 @@ function rFines(s: DBState): ReportResult {
   };
 }
 
-function rActivity(s: DBState): ReportResult {
+function rActivity(s: DBState, f: ReportFilters): ReportResult {
   const t = today();
-  const roles = ['student', 'faculty'] as const;
+  const roles = (['student', 'faculty'] as const).filter((r) => !f.role || f.role === r);
+  const loansAll = filteredLoans(s, f);
   const data = roles.map((role) => {
     const members = s.members.filter((m) => m.role === role && m.is_active);
     const ids = new Set(members.map((m) => m.user_id));
-    const loans = s.loans.filter((l) => ids.has(l.user_id));
+    const loans = loansAll.filter((l) => ids.has(l.user_id));
     return {
       role,
       members: members.length,
@@ -323,7 +509,7 @@ function rActivity(s: DBState): ReportResult {
   };
 }
 
-function rInventory(s: DBState): ReportResult {
+function rInventory(s: DBState, f: ReportFilters): ReportResult {
   const rows: (string | number)[][] = [];
   let total = 0;
   let avail = 0;
@@ -333,9 +519,9 @@ function rInventory(s: DBState): ReportResult {
     total += statuses.length;
     avail += c('available');
   };
-  s.books.filter((b) => b.is_active).forEach((b) =>
+  s.books.filter((b) => b.is_active && itemMatches(s, 'book', b.book_id, f)).forEach((b) =>
     add(b.title, 'Book', s.bookCopies.filter((c) => c.book_id === b.book_id).map((c) => c.status)));
-  s.media.filter((m) => m.is_active).forEach((m) =>
+  s.media.filter((m) => m.is_active && itemMatches(s, 'media', m.media_id, f)).forEach((m) =>
     add(m.title, m.media_type, s.mediaCopies.filter((c) => c.media_id === m.media_id).map((c) => c.status)));
   return {
     columns: ['Title', 'Type', 'Total copies', 'Available', 'On loan', 'Held for pickup'],

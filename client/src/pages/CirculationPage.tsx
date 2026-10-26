@@ -1,8 +1,11 @@
 import { FormEvent, useState } from 'react';
 import * as api from '../api/api';
+import { useAuth } from '../auth/AuthContext';
+import { IN_PERSON_METHODS } from '../api/rules';
+import ReceiptModal from '../components/ReceiptModal';
 import { Badge, Card, DataTable, PageHeader, Tabs, useAction, useLoad } from '../components/ui';
 import { fmtDate, money } from '../utils/dates';
-import type { ItemKind } from '../types';
+import type { ItemKind, ReceiptView } from '../types';
 
 type Tab = 'checkout' | 'loans' | 'holds' | 'fines';
 
@@ -18,6 +21,9 @@ export default function CirculationPage() {
   const [memberId, setMemberId] = useState('');
   const [item, setItem] = useState('');
   const [method, setMethod] = useState('Cash');
+  const [isbn, setIsbn] = useState('');
+  const [receipt, setReceipt] = useState<ReceiptView | null>(null);
+  const { session } = useAuth();
 
   const reloadAll = () => { members.reload(); books.reload(); media.reload(); loans.reload(); holds.reload(); fines.reload(); };
 
@@ -28,6 +34,18 @@ export default function CirculationPage() {
   };
 
   const activeMembers = (members.data ?? []).filter((m) => m.is_active);
+
+  // Pick the checkout item by scanning or typing its ISBN.
+  const lookupIsbn = (value: string) => {
+    setIsbn(value);
+    const digits = value.replace(/[^0-9Xx]/g, '').toUpperCase();
+    const hit = (books.data ?? []).find((b) => b.is_active && b.isbn && b.isbn === digits);
+    if (hit) setItem(`book:${hit.book_id}`);
+  };
+
+  const recordPayment = (fineId: number) => run(async () => {
+    setReceipt(await api.doPayFine(fineId, method, session!.id));
+  }, 'Payment received in person. Receipt issued.', reloadAll);
 
   return (
     <>
@@ -42,6 +60,9 @@ export default function CirculationPage() {
         <Card title="Check out an item">
           <p className="muted">Students: 3 items for 20 days. Faculty: 6 items for 30 days. A member with a ready hold can take the held copy.</p>
           <form className="form inline" onSubmit={submitCheckout}>
+            <label><span>ISBN lookup</span>
+              <input value={isbn} onChange={(e) => lookupIsbn(e.target.value)} placeholder="Scan or type ISBN" inputMode="numeric" />
+            </label>
             <label><span>Member</span>
               <select value={memberId} onChange={(e) => setMemberId(e.target.value)} required>
                 <option value="" disabled>Select…</option>
@@ -53,7 +74,7 @@ export default function CirculationPage() {
                 <option value="" disabled>Select…</option>
                 <optgroup label="Books">
                   {(books.data ?? []).filter((b) => b.is_active).map((b) => (
-                    <option key={b.book_id} value={`book:${b.book_id}`}>{b.title} — {b.available_copies}/{b.total_copies} available</option>
+                    <option key={b.book_id} value={`book:${b.book_id}`}>{b.title}{b.isbn ? ` (ISBN ${b.isbn})` : ''} — {b.available_copies}/{b.total_copies} available</option>
                   ))}
                 </optgroup>
                 <optgroup label="Media & devices">
@@ -102,12 +123,13 @@ export default function CirculationPage() {
       )}
 
       {tab === 'fines' && (
-        <Card title="Fines" actions={
-          <label className="row gap"><span className="muted">Payment method</span>
+        <Card title="Fines — in-person payments" actions={
+          <label className="row gap"><span className="muted">Paid in person by</span>
             <select value={method} onChange={(e) => setMethod(e.target.value)}>
-              <option>Cash</option><option>Card</option><option>Check</option>
+              {IN_PERSON_METHODS.map((m) => <option key={m}>{m}</option>)}
             </select>
           </label>}>
+          <p className="muted">Members pay fines at the desk. Recording a payment creates a receipt the member can see under My Receipts.</p>
           <DataTable rows={fines.data ?? []} empty="No fines have been issued."
             columns={[
               { header: 'Fine #', cell: (f) => f.fine_id },
@@ -116,10 +138,11 @@ export default function CirculationPage() {
               { header: 'Due / returned', cell: (f) => `${fmtDate(f.due_date)} / ${fmtDate(f.return_date)}` },
               { header: 'Amount', cell: (f) => money(f.amount) },
               { header: 'Status', cell: (f) => f.paid_status === 'paid' ? <Badge tone="green">Paid {fmtDate(f.paid_date)} · {f.receipt_code}</Badge> : <Badge tone="red">Unpaid</Badge> },
-              { header: '', cell: (f) => f.paid_status === 'unpaid' && <button className="btn small primary" onClick={() => run(() => api.doPayFine(f.fine_id, method), 'Payment recorded and receipt issued.', reloadAll)}>Record payment</button> },
+              { header: '', cell: (f) => f.paid_status === 'unpaid' && <button className="btn small primary" onClick={() => recordPayment(f.fine_id)}>Record payment &amp; print receipt</button> },
             ]} />
         </Card>
       )}
+      {receipt && <ReceiptModal receipt={receipt} onClose={() => setReceipt(null)} />}
     </>
   );
 }

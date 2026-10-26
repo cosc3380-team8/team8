@@ -1,18 +1,31 @@
-import { ReactNode } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { ReactNode, useEffect, useState } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import * as api from '../api/api';
 import { useAuth } from '../auth/AuthContext';
 import { Badge } from './ui';
 
-interface NavItem { to: string; label: string }
+interface NavItem { to: string; label: string; count?: number }
 
 export default function Layout({ children }: { children: ReactNode }) {
-  const { session, logout, isStaff, isAdmin } = useAuth();
+  const { session, logout, isStaff, isAdmin, isPatron } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    if (!isPatron || !session) return;
+    const refresh = () => { api.unreadNotificationCount(session.id).then(setUnread); };
+    refresh();
+    window.addEventListener('notifications-changed', refresh);
+    return () => window.removeEventListener('notifications-changed', refresh);
+  }, [isPatron, session, location.pathname]);
 
   const items: NavItem[] = [
     { to: '/', label: isStaff ? 'Dashboard' : 'My Library' },
+    ...(isPatron ? [{ to: '/notifications', label: 'Notifications', count: unread }] : []),
     { to: '/catalog', label: 'Catalog' },
     { to: '/rooms', label: 'Study Rooms' },
+    { to: '/receipts', label: isStaff ? 'Receipts' : 'My Receipts' },
   ];
   const staffItems: NavItem[] = [
     { to: '/circulation', label: 'Circulation' },
@@ -31,6 +44,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   const link = (n: NavItem) => (
     <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
       {n.label}
+      {!!n.count && <span className="nav-count" aria-label={`${n.count} unread`}>{n.count}</span>}
     </NavLink>
   );
 

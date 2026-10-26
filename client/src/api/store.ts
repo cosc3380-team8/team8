@@ -1,7 +1,7 @@
 import type { DBState } from './state';
 import { buildSeed } from './seed';
 
-const KEY = 'library_db_v6';
+const KEY = 'library_db_v7';
 
 export function loadState(): DBState {
   try {

@@ -1,6 +1,6 @@
 import { DBState, nextId } from './state';
 import type { BookCopy, Fine, Hold, ItemKind, Loan, MediaCopy } from '../types';
-import { addDays, daysBetween, today } from '../utils/dates';
+import { addDays, daysBetween, fmtDate, today } from '../utils/dates';
 
 export const LIMITS = {
   student: { maxItems: 3, days: 20 },
@@ -13,6 +13,8 @@ export const WARNING_DAYS = 2;
 export const STUDENT_LIMIT_MESSAGE =
   'Trying to borrow more books? Return one today and experience another book’s world!';
 
+export const IN_PERSON_METHODS = ['Cash', 'Card', 'Check'] as const;
+
 export const fineAmount = (daysOverdue: number) =>
   daysOverdue > 0 ? 5 + Math.floor(daysOverdue / 7) : 0;
 
@@ -23,6 +25,18 @@ export function log(s: DBState, trigger: string, table: string, message: string)
     trigger_name: trigger,
     table_name: table,
     message,
+  });
+}
+
+// Sends a message to a member's notification inbox.
+export function notify(s: DBState, userId: number, source: string, message: string) {
+  s.notifications.unshift({
+    notification_id: nextId(s, 'notifications'),
+    user_id: userId,
+    created_at: new Date().toISOString(),
+    source,
+    message,
+    is_read: false,
   });
 }
 
@@ -74,7 +88,7 @@ export function checkout(
   const activeCount = s.loans.filter((l) => l.user_id === userId && l.return_date === null).length;
 
   if (activeCount >= limit.maxItems) {
-    log(s, 'trg_loans_enforce_limit', 'loans',
+    log(s, 'borrow_limit_check', 'loans',
       `Blocked checkout: member ${userId} (${member.role}) already has ${activeCount}/${limit.maxItems} items.`);
     throw new Error(
       member.role === 'student'
@@ -104,8 +118,11 @@ export function checkout(
   s.loans.push(loan);
   copy.status = 'loaned';
   if (ready) ready.status = 'fulfilled';
+  const title = itemTitle(s, kind, itemId);
   log(s, 'trg_loans_after_insert', 'loans',
-    `Loan ${loan.loan_id}: copy marked loaned${ready ? ', hold fulfilled' : ''}; due ${loan.due_date}.`);
+    `Loan ${loan.loan_id}: copy marked loaned${ready ? ', hold fulfilled' : ''}; due ${loan.due_date}. Member ${userId} notified.`);
+  notify(s, userId, 'trg_loans_after_insert',
+    `You borrowed "${title}". It is due back on ${fmtDate(loan.due_date)}.${ready ? ' Your hold on this item is now fulfilled.' : ''}`);
   return loan;
 }
 
@@ -137,6 +154,10 @@ export function returnLoan(s: DBState, loanId: number, asOf = today()): { fine: 
     log(s, 'trg_loans_after_return', 'fines',
       `Fine ${fine.fine_id} of $${fine.amount.toFixed(2)} created for loan ${loan.loan_id} (${late} days late).`);
   }
+  notify(s, loan.user_id, 'trg_loans_after_return',
+    fine
+      ? `"${info.title}" was returned ${late} day${late === 1 ? '' : 's'} late. A fine of $${fine.amount.toFixed(2)} was added. Please pay at the front desk.`
+      : `"${info.title}" was returned on time. Thank you!`);
   promoteNextHold(s, info.kind, info.itemId, asOf);
   return { fine };
 }
@@ -152,7 +173,9 @@ export function promoteNextHold(s: DBState, kind: ItemKind, itemId: number, asOf
   next.expiration_date = addDays(asOf, HOLD_DAYS);
   copy.status = 'held';
   log(s, 'sp_promote_next_hold', 'holds',
-    `Hold ${next.hold_id} is ready for member ${next.user_id}; pick up by ${next.expiration_date}.`);
+    `Hold ${next.hold_id} is ready for member ${next.user_id}; pick up by ${next.expiration_date}. Member notified.`);
+  notify(s, next.user_id, 'sp_promote_next_hold',
+    `Your hold on "${itemTitle(s, kind, itemId)}" is ready. Pick it up at the desk by ${fmtDate(next.expiration_date)}.`);
 }
 
 export function placeHold(
@@ -200,15 +223,17 @@ export function expireHolds(s: DBState, asOf = today()): number {
   const overdue = s.holds.filter((h) => h.status === 'ready' && h.expiration_date !== null && h.expiration_date < asOf);
   overdue.forEach((h) => {
     releaseHold(s, h, 'expired', asOf);
-    log(s, 'sp_expire_holds', 'holds', `Hold ${h.hold_id} expired (not picked up by ${h.expiration_date}).`);
+    log(s, 'hold_expiry', 'holds', `Hold ${h.hold_id} expired (not picked up by ${h.expiration_date}).`);
   });
   return overdue.length;
 }
 
-export function payFine(s: DBState, fineId: number, method: string, asOf = today()) {
+// Fines are paid in person at the desk; a staff member records the payment.
+export function payFine(s: DBState, fineId: number, method: string, staffId: number | null, asOf = today()) {
   const fine = s.fines.find((f) => f.fine_id === fineId);
   if (!fine) throw new Error('Fine not found.');
   if (fine.paid_status === 'paid') throw new Error('This fine is already paid.');
+  if (!(IN_PERSON_METHODS as readonly string[]).includes(method)) throw new Error('Choose Cash, Card or Check.');
   const loan = s.loans.find((l) => l.loan_id === fine.loan_id)!;
 
   const payment = {
@@ -218,6 +243,7 @@ export function payFine(s: DBState, fineId: number, method: string, asOf = today
     amount_paid: fine.amount,
     payment_method: method,
     payment_date: asOf,
+    staff_id: staffId,
   };
   s.payments.push(payment);
   fine.paid_status = 'paid';
@@ -229,7 +255,7 @@ export function payFine(s: DBState, fineId: number, method: string, asOf = today
     issued_date: asOf,
   };
   s.receipts.push(receipt);
-  log(s, 'trg_payments_after_insert', 'payments',
+  log(s, 'payment_recorded', 'payments',
     `Payment ${payment.payment_id}: fine ${fine.fine_id} marked paid; receipt ${receipt.transaction_code} issued.`);
   return receipt;
 }
@@ -241,7 +267,7 @@ export function reserveRoom(s: DBState, userId: number, roomId: number, start: s
   if (!start || !end || end <= start) throw new Error('End time must be after start time.');
   const clash = s.reservations.find((r) => r.room_id === roomId && start < r.end_time && end > r.start_time);
   if (clash) {
-    log(s, 'trg_reservations_no_overlap', 'room_reservations',
+    log(s, 'room_overlap_check', 'room_reservations',
       `Blocked: room ${room.room_number} overlaps reservation ${clash.reservation_id}.`);
     throw new Error(`Room ${room.room_number} is already reserved from ${clash.start_time.replace('T', ' ')} to ${clash.end_time.replace('T', ' ')}.`);
   }

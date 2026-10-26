@@ -33,6 +33,7 @@ export interface Author {
 export interface Book {
   book_id: number;
   title: string;
+  isbn: string;
   publisher: string;
   is_active: boolean;
 }
@@ -116,6 +117,7 @@ export interface Payment {
   amount_paid: number;
   payment_method: string;
   payment_date: string;
+  staff_id: number | null;
 }
 
 export interface Receipt {
@@ -123,6 +125,15 @@ export interface Receipt {
   payment_id: number;
   transaction_code: string;
   issued_date: string;
+}
+
+export interface Notification {
+  notification_id: number;
+  user_id: number;
+  created_at: string;
+  source: string;
+  message: string;
+  is_read: boolean;
 }
 
 export interface AuditEntry {
@@ -181,6 +192,27 @@ export interface FineView extends Fine {
 export interface ReservationView extends RoomReservation {
   room_number: string;
   member_name: string;
+  archived: boolean;
+}
+
+export interface ReceiptView {
+  receipt_id: number;
+  transaction_code: string;
+  issued_date: string;
+  payment_id: number;
+  payment_method: string;
+  amount_paid: number;
+  received_by: string;
+  fine_id: number;
+  loan_id: number;
+  user_id: number;
+  member_name: string;
+  member_email: string;
+  title: string;
+  isbn: string | null;
+  borrow_date: string;
+  due_date: string;
+  return_date: string | null;
 }
 
 export interface TableResult {

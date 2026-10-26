@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { Alert } from '../components/ui';
+import { MascotCloud } from '../components/Sky';
 
 const DEMO = [
   { role: 'Student', email: 'esther@uni.edu', password: 'student123', note: 'Esther Burns · at her 3-item limit' },
@@ -31,9 +32,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="login-page">
+    <div className="login-page snoopy-bg">
+      <div className="login-wrap">
+      <MascotCloud />
       <div className="login-card">
-        <img className="login-mascot" src="/mascot.png" alt="Uma's Library cougar mascot" />
         <h1>Uma’s Library</h1>
         <p className="muted">Sign in with your library account.</p>
         <form onSubmit={submit} className="form">
@@ -56,6 +58,7 @@ export default function LoginPage() {
             </button>
           ))}
         </div>
+      </div>
       </div>
     </div>
   );

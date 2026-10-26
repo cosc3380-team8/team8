@@ -5,7 +5,7 @@ import * as rules from './rules';
 import { daysBetween, today } from '../utils/dates';
 import type {
   AuditEntry, Author, Book, BookView, FineView, HoldView, ItemKind, LoanView, Media,
-  MediaView, Member, ReservationView, Room, Session, Staff,
+  MediaView, Member, Notification, ReceiptView, ReservationView, Room, Session, Staff,
 } from '../types';
 
 async function run<T>(fn: (s: DBState) => T): Promise<T> {
@@ -188,17 +188,84 @@ export const listFines = (userId?: number): Promise<FineView[]> =>
       .sort((a, b) => b.fine_id - a.fine_id),
   );
 
+const nowLocal = () => {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${today()}T${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+
+// A reservation is archived automatically once its end time has passed.
 export const listReservations = (userId?: number): Promise<ReservationView[]> =>
-  run((s) =>
-    s.reservations
+  run((s) => {
+    const now = nowLocal();
+    return s.reservations
       .filter((r) => userId === undefined || r.user_id === userId)
       .map((r) => ({
         ...r,
         room_number: s.rooms.find((x) => x.room_id === r.room_id)?.room_number ?? '?',
         member_name: fullName(s.members.find((x) => x.user_id === r.user_id)!),
+        archived: r.end_time <= now,
       }))
-      .sort((a, b) => a.start_time.localeCompare(b.start_time)),
-  );
+      .sort((a, b) => a.start_time.localeCompare(b.start_time));
+  });
+
+export const listNotifications = (userId: number): Promise<Notification[]> =>
+  run((s) => s.notifications.filter((n) => n.user_id === userId));
+
+export const unreadNotificationCount = (userId: number): Promise<number> =>
+  run((s) => s.notifications.filter((n) => n.user_id === userId && !n.is_read).length);
+
+export const markNotificationsRead = (userId: number): Promise<void> =>
+  run((s) => { s.notifications.forEach((n) => { if (n.user_id === userId) n.is_read = true; }); });
+
+const digitsOnly = (v: string) => v.replace(/[^0-9Xx]/g, '').toUpperCase();
+
+function receiptView(s: DBState, receiptId: number): ReceiptView {
+  const r = s.receipts.find((x) => x.receipt_id === receiptId);
+  if (!r) throw new Error('Receipt not found.');
+  const pay = s.payments.find((p) => p.payment_id === r.payment_id)!;
+  const fine = s.fines.find((f) => f.fine_id === pay.fine_id)!;
+  const loan = s.loans.find((l) => l.loan_id === fine.loan_id)!;
+  const m = s.members.find((x) => x.user_id === loan.user_id)!;
+  const info = rules.loanItem(s, loan);
+  const staff = pay.staff_id !== null ? s.staff.find((x) => x.staff_id === pay.staff_id) : undefined;
+  return {
+    receipt_id: r.receipt_id,
+    transaction_code: r.transaction_code,
+    issued_date: r.issued_date,
+    payment_id: pay.payment_id,
+    payment_method: pay.payment_method,
+    amount_paid: pay.amount_paid,
+    received_by: staff ? fullName(staff) : 'Front desk',
+    fine_id: fine.fine_id,
+    loan_id: loan.loan_id,
+    user_id: m.user_id,
+    member_name: fullName(m),
+    member_email: m.email,
+    title: info.title,
+    isbn: info.kind === 'book' ? s.books.find((b) => b.book_id === info.itemId)?.isbn || null : null,
+    borrow_date: loan.borrow_date,
+    due_date: loan.due_date,
+    return_date: loan.return_date,
+  };
+}
+
+// Receipts and transactions. Members only see their own; search matches
+// ISBN, receipt code, title or member name.
+export const listReceipts = (opts: { userId?: number; search?: string } = {}): Promise<ReceiptView[]> =>
+  run((s) => {
+    const q = (opts.search ?? '').trim().toLowerCase();
+    const qDigits = digitsOnly(q);
+    return s.receipts
+      .map((r) => receiptView(s, r.receipt_id))
+      .filter((r) => opts.userId === undefined || r.user_id === opts.userId)
+      .filter((r) => !q
+        || (qDigits.length >= 3 && r.isbn !== null && r.isbn.includes(qDigits))
+        || r.transaction_code.toLowerCase().includes(q)
+        || r.title.toLowerCase().includes(q)
+        || r.member_name.toLowerCase().includes(q))
+      .sort((a, b) => b.receipt_id - a.receipt_id);
+  });
 
 export const dashboardStats = () =>
   run((s) => {
@@ -232,6 +299,9 @@ export const deleteAuthor = (id: number): Promise<void> =>
 export const saveBook = (b: Partial<Book> & { author_ids?: number[] }, addCopies = 0): Promise<void> =>
   run((s) => {
     need(b.title, 'Title');
+    const isbn = digitsOnly(b.isbn ?? '');
+    if (isbn && isbn.length !== 10 && isbn.length !== 13) throw new Error('ISBN must have 10 or 13 digits.');
+    if (isbn && s.books.some((x) => x.isbn === isbn && x.book_id !== b.book_id)) throw new Error('Another book already has that ISBN.');
     const authorIds = [...new Set((b.author_ids ?? []).map(Number))];
     if (authorIds.length === 0) throw new Error('Choose at least one author.');
     if (authorIds.some((aid) => !s.authors.some((a) => a.author_id === aid))) throw new Error('Choose valid authors.');
@@ -241,11 +311,12 @@ export const saveBook = (b: Partial<Book> & { author_ids?: number[] }, addCopies
         throw new Error('Cannot archive: copies are on loan or held.');
       const cur = s.books.find((x) => x.book_id === id)!;
       cur.title = b.title!;
+      cur.isbn = isbn;
       cur.publisher = b.publisher ?? '';
       if (b.is_active !== undefined) cur.is_active = b.is_active;
     } else {
       id = nextId(s, 'books');
-      s.books.push({ book_id: id, title: b.title!, publisher: b.publisher ?? '', is_active: true });
+      s.books.push({ book_id: id, title: b.title!, isbn, publisher: b.publisher ?? '', is_active: true });
       addCopies = Math.max(addCopies, 1);
     }
 
@@ -365,10 +436,15 @@ export const doReturn = (loanId: number) => run((s) => rules.returnLoan(s, loanI
 export const doPlaceHold = (userId: number, kind: ItemKind, itemId: number) =>
   run((s) => rules.placeHold(s, userId, kind, itemId));
 export const doCancelHold = (holdId: number) => run((s) => rules.cancelHold(s, holdId));
-export const doPayFine = (fineId: number, method: string) => run((s) => rules.payFine(s, fineId, method));
+export const doPayFine = (fineId: number, method: string, staffId: number) =>
+  run((s) => receiptView(s, rules.payFine(s, fineId, method, staffId).receipt_id));
 export const doReserveRoom = (userId: number, roomId: number, start: string, end: string) =>
   run((s) => rules.reserveRoom(s, userId, roomId, start, end));
 export const cancelReservation = (id: number): Promise<void> =>
-  run((s) => { s.reservations = s.reservations.filter((r) => r.reservation_id !== id); });
+  run((s) => {
+    const r = s.reservations.find((x) => x.reservation_id === id);
+    if (r && r.end_time <= nowLocal()) throw new Error('This reservation has ended and was archived.');
+    s.reservations = s.reservations.filter((x) => x.reservation_id !== id);
+  });
 export const runMaintenance = () => run((s) => rules.expireHolds(s));
 export const resetDemoData = async () => { resetState(); loadState(); };

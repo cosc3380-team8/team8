@@ -17,6 +17,8 @@ import StaffPage from './pages/StaffPage';
 import QueriesPage from './pages/QueriesPage';
 import ReportsPage from './pages/ReportsPage';
 import TriggersPage from './pages/TriggersPage';
+import ReceiptsPage from './pages/ReceiptsPage';
+import NotificationsPage from './pages/NotificationsPage';
 
 function RequireRole({ roles, children }: { roles?: Role[]; children: ReactNode }) {
   const { session } = useAuth();
@@ -28,6 +30,7 @@ function RequireRole({ roles, children }: { roles?: Role[]; children: ReactNode 
 }
 
 const STAFF: Role[] = ['employee', 'admin'];
+const PATRONS: Role[] = ['student', 'faculty'];
 
 export default function App() {
   const { session } = useAuth();
@@ -41,6 +44,8 @@ export default function App() {
       <Route path="/" element={page(<DashboardPage />)} />
       <Route path="/catalog" element={page(<CatalogPage />)} />
       <Route path="/rooms" element={page(<RoomsPage />)} />
+      <Route path="/receipts" element={page(<ReceiptsPage />)} />
+      <Route path="/notifications" element={page(<NotificationsPage />, PATRONS)} />
       <Route path="/circulation" element={page(<CirculationPage />, STAFF)} />
       <Route path="/manage/books" element={page(<ManageBooksPage />, STAFF)} />
       <Route path="/manage/media" element={page(<ManageMediaPage />, STAFF)} />

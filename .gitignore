@@ -1,0 +1,13 @@
+# Installed packages
+node_modules/
+
+# Build output and Vite cache
+dist/
+.vite/
+
+# Mac system files
+.DS_Store
+__MACOSX/
+
+# Zip archives (e.g. Archive.zip) are too big for the repo
+*.zip
