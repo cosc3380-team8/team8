@@ -1,8 +1,6 @@
 import sql from 'mssql'
 import bcrypt from 'bcryptjs'
 
-// Login and signup against the user and staff tables. Passwords are stored as bcrypt hashes.
-
 function badRequest(message) {
     const error = new Error(message);
     error.statusCode = 400;

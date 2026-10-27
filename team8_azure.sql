@@ -1,4 +1,4 @@
-
+-- Re-running this file deletes every table and all data.
 SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 SET ANSI_PADDING ON;
@@ -8,6 +8,24 @@ SET CONCAT_NULL_YIELDS_NULL ON;
 SET NUMERIC_ROUNDABORT OFF;
 GO
 
+DROP PROCEDURE IF EXISTS dbo.save_room_reservation;
+DROP VIEW IF EXISTS dbo.fine_status;
+DROP TABLE IF EXISTS dbo.[receipts], dbo.[payments], dbo.[fine], dbo.[waitlist], dbo.[loan],
+    dbo.[room_reservations], dbo.[copies], dbo.[book_author], dbo.[room], dbo.[media],
+    dbo.[book], dbo.[author], dbo.[staff], dbo.[user], dbo.[borrow_policy];
+GO
+
+CREATE TABLE dbo.[borrow_policy] (
+    [is_faculty] bit NOT NULL,
+    [max_items] int NOT NULL,
+    [loan_days] int NOT NULL,
+    PRIMARY KEY ([is_faculty]),
+    CONSTRAINT [borrow_policy_chk_1] CHECK (([max_items] > 0)),
+    CONSTRAINT [borrow_policy_chk_2] CHECK (([loan_days] > 0))
+);
+
+INSERT INTO dbo.[borrow_policy] ([is_faculty], [max_items], [loan_days]) VALUES (0, 3, 20), (1, 6, 25);
+
 CREATE TABLE dbo.[user] (
     [user_id] int IDENTITY(1,1) NOT NULL,
     [first_name] nvarchar(30) NOT NULL,
@@ -15,8 +33,11 @@ CREATE TABLE dbo.[user] (
     [email] nvarchar(100) NOT NULL,
     [password] nvarchar(255) NOT NULL,
     [is_faculty] bit NOT NULL,
+    [is_active] bit NOT NULL DEFAULT 1,
+    [created_at] datetime2(0) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY ([user_id]),
-    CONSTRAINT [uq_user_email] UNIQUE ([email])
+    CONSTRAINT [uq_user_email] UNIQUE ([email]),
+    CONSTRAINT [user_ibfk_1] FOREIGN KEY ([is_faculty]) REFERENCES dbo.[borrow_policy] ([is_faculty])
 );
 
 CREATE TABLE dbo.[staff] (
@@ -26,6 +47,7 @@ CREATE TABLE dbo.[staff] (
     [email] nvarchar(100) NOT NULL,
     [password] nvarchar(255) NOT NULL,
     [is_admin] bit NOT NULL,
+    [is_active] bit NOT NULL DEFAULT 1,
     PRIMARY KEY ([staff_id]),
     CONSTRAINT [uq_staff_email] UNIQUE ([email])
 );
@@ -43,6 +65,7 @@ CREATE TABLE dbo.[book] (
     [publisher] nvarchar(100) NULL DEFAULT NULL,
     [isbn] nvarchar(13) NULL DEFAULT NULL,
     [publish_year] int NULL DEFAULT NULL,
+    [is_active] bit NOT NULL DEFAULT 1,
     PRIMARY KEY ([book_id])
 );
 
@@ -50,6 +73,7 @@ CREATE TABLE dbo.[media] (
     [media_id] int IDENTITY(1,1) NOT NULL,
     [title] nvarchar(150) NOT NULL,
     [is_dvd] bit NOT NULL,
+    [is_active] bit NOT NULL DEFAULT 1,
     PRIMARY KEY ([media_id])
 );
 
@@ -57,6 +81,7 @@ CREATE TABLE dbo.[room] (
     [room_id] int IDENTITY(1,1) NOT NULL,
     [room_number] nvarchar(10) NOT NULL,
     [capacity] int NOT NULL,
+    [is_active] bit NOT NULL DEFAULT 1,
     PRIMARY KEY ([room_id]),
     CONSTRAINT [uq_room_room_number] UNIQUE ([room_number]),
     CONSTRAINT [room_chk_1] CHECK (([capacity] > 0))
@@ -75,6 +100,7 @@ CREATE TABLE dbo.[copies] (
     [book_id] int NULL DEFAULT NULL,
     [is_available] bit NOT NULL DEFAULT 1,
     [media_id] int NULL DEFAULT NULL,
+    [is_active] bit NOT NULL DEFAULT 1,
     PRIMARY KEY ([copy_id]),
     CONSTRAINT [copies_ibfk_1] FOREIGN KEY ([book_id]) REFERENCES dbo.[book] ([book_id]),
     CONSTRAINT [copies_ibfk_2] FOREIGN KEY ([media_id]) REFERENCES dbo.[media] ([media_id]),
@@ -170,6 +196,8 @@ CREATE INDEX [ix_waitlist_media_id] ON dbo.[waitlist] (media_id);
 CREATE INDEX [ix_payments_fine_id] ON dbo.[payments] (fine_id);
 CREATE INDEX [ix_payments_user_id] ON dbo.[payments] (user_id);
 CREATE UNIQUE INDEX [one_active_loan_per_copy] ON dbo.[loan] ([copy_id]) WHERE [return_date] IS NULL;
+CREATE UNIQUE INDEX [one_waiting_per_user_book] ON dbo.[waitlist] ([user_id], [book_id]) WHERE [status] = N'waiting' AND [book_id] IS NOT NULL;
+CREATE UNIQUE INDEX [one_waiting_per_user_media] ON dbo.[waitlist] ([user_id], [media_id]) WHERE [status] = N'waiting' AND [media_id] IS NOT NULL;
 GO
 
 CREATE VIEW dbo.fine_status
@@ -197,7 +225,6 @@ CREATE PROCEDURE dbo.save_room_reservation
 AS
 BEGIN
     SET NOCOUNT ON;
-    -- This procedure owns its transaction; call it with autocommit enabled.
     IF @@TRANCOUNT <> 0
         THROW 50001, 'Call this procedure outside an existing transaction', 1;
     SET XACT_ABORT ON;
@@ -207,8 +234,6 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
         DECLARE @v_room int = NULL, @v_existing int = NULL;
-        -- Every caller locks the target room before checking bookings.
-        -- HOLDLOCK keeps the lock until commit, including on Azure with RCSI.
         SELECT @v_room = room_id
         FROM dbo.room WITH (UPDLOCK, HOLDLOCK)
         WHERE room_id = @p_room_id;
@@ -247,5 +272,89 @@ BEGIN
         IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
         THROW;
     END CATCH;
+END;
+GO
+
+CREATE TRIGGER dbo.trg_loan_checkout
+ON dbo.[loan]
+AFTER INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF NOT EXISTS (SELECT 1 FROM inserted WHERE return_date IS NULL)
+        RETURN;
+
+    IF EXISTS (
+        SELECT 1 FROM inserted AS i
+        JOIN dbo.[user] AS u ON u.user_id = i.user_id
+        WHERE i.return_date IS NULL AND u.is_active = 0
+    )
+        THROW 51001, 'This account is deactivated and cannot borrow items', 1;
+
+    IF EXISTS (
+        SELECT 1 FROM inserted AS i
+        JOIN dbo.copies AS c ON c.copy_id = i.copy_id
+        WHERE i.return_date IS NULL AND c.is_active = 0
+    )
+        THROW 51002, 'This copy has been withdrawn and cannot be borrowed', 1;
+
+    IF EXISTS (
+        SELECT 1 FROM dbo.loan AS l
+        JOIN dbo.[user] AS u ON u.user_id = l.user_id
+        JOIN dbo.borrow_policy AS bp ON bp.is_faculty = u.is_faculty
+        WHERE l.return_date IS NULL
+          AND l.user_id IN (SELECT i.user_id FROM inserted AS i WHERE i.return_date IS NULL)
+        GROUP BY l.user_id, bp.max_items
+        HAVING COUNT(*) > bp.max_items
+    )
+        THROW 51003, 'Trying to borrow more books? Return one today and experience another book''s world!', 1;
+
+    UPDATE c
+    SET is_available = 0
+    FROM dbo.copies AS c
+    JOIN inserted AS i ON i.copy_id = c.copy_id
+    WHERE i.return_date IS NULL;
+END;
+GO
+
+CREATE TRIGGER dbo.trg_loan_return
+ON dbo.[loan]
+AFTER UPDATE, DELETE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO dbo.fine (loan_id, amount)
+    SELECT i.loan_id, 5 + DATEDIFF(day, i.due_date, i.return_date) / 7
+    FROM inserted AS i
+    JOIN deleted AS d ON d.loan_id = i.loan_id
+    WHERE d.return_date IS NULL
+      AND i.return_date > i.due_date
+      AND NOT EXISTS (SELECT 1 FROM dbo.fine AS f WHERE f.loan_id = i.loan_id);
+
+    UPDATE c
+    SET is_available = CASE WHEN EXISTS (
+            SELECT 1 FROM dbo.loan AS l WHERE l.copy_id = c.copy_id AND l.return_date IS NULL
+        ) THEN 0 ELSE 1 END
+    FROM dbo.copies AS c
+    WHERE c.copy_id IN (SELECT copy_id FROM inserted UNION SELECT copy_id FROM deleted);
+END;
+GO
+
+CREATE TRIGGER dbo.trg_room_reservations_overlap
+ON dbo.[room_reservations]
+AFTER INSERT, UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF EXISTS (
+        SELECT 1 FROM inserted AS i
+        JOIN dbo.room_reservations AS r
+          ON r.room_id = i.room_id
+         AND r.reservation_id <> i.reservation_id
+         AND r.start_time < i.end_time
+         AND r.end_time > i.start_time
+    )
+        THROW 51004, 'Room is already booked during that time', 1;
 END;
 GO

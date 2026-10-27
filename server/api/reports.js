@@ -1,8 +1,5 @@
 import sql from 'mssql'
 
-// The 3 data queries and 3 data reports. Same SQL as team8_queries_reports.sql.
-// Each one returns { columns, rows } so the Queries and Reports pages can show it as a table.
-
 function toTable(recordset) {
     const columns = Object.keys(recordset.columns);
     const rows = recordset.map((row) => columns.map((column) => row[column]));
@@ -130,7 +127,6 @@ export async function runQuery(database, id, params) {
     throw badRequest('Unknown query.');
 }
 
-// Report filters from the Reports page. Empty ones are sent to SQL as NULL and skipped.
 function readFilters(params) {
     const userId = params.userId ? Number(params.userId) : null;
     const authorId = params.authorId ? Number(params.authorId) : null;
@@ -167,7 +163,6 @@ function withFilters(request, f) {
         .input('keyword', sql.NVarChar(100), f.keyword);
 }
 
-// Filters on the member (u) and on the item (c, b, m).
 const MEMBER_FILTERS = `
                   AND (@userId IS NULL OR u.user_id = @userId)
                   AND (@role IS NULL OR u.is_faculty = CASE WHEN @role = 'faculty' THEN 1 ELSE 0 END)`;
@@ -270,7 +265,6 @@ export async function runReport(database, id, params) {
     }
 
     if (id === 'activity') {
-        // Item filters go inside the loan subquery so members with no matching loans still count.
         const result = await withFilters(database.request(), f)
             .query(`
                 SELECT CASE WHEN u.is_faculty = 1 THEN N'Faculty' ELSE N'Student' END AS [Role],

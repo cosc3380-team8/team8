@@ -1,8 +1,3 @@
--- Team 8: the website's demo logins, added to the real database so the real login accepts them.
--- Same emails and passwords as the login info in the Google Doc:
---   admin123 (Azael), staff123 (Clark), student123 (Esther, Ben, Uriel), faculty123 (Aliza, Dan)
--- Passwords are stored as bcrypt hashes. Safe to run more than once: emails already in the database are skipped.
-
 INSERT INTO dbo.[staff] (first_name, last_name, email, password, is_admin, is_active)
 SELECT v.first_name, v.last_name, v.email, v.hash, v.is_admin, 1
 FROM (VALUES
@@ -24,7 +19,6 @@ FROM (VALUES
 WHERE NOT EXISTS (SELECT 1 FROM dbo.[user] AS u WHERE u.email = v.email)
   AND NOT EXISTS (SELECT 1 FROM dbo.[staff] AS s WHERE s.email = v.email);
 
--- Should list all 7 accounts.
 SELECT N'staff' AS [table], first_name, last_name, email FROM dbo.[staff] WHERE email LIKE N'%@library.edu'
 UNION ALL
 SELECT N'user', first_name, last_name, email FROM dbo.[user] WHERE email LIKE N'%@uni.edu';
