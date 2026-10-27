@@ -39,7 +39,9 @@ const server = http.createServer(async (req, res) => {
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
     if (req.method === "OPTIONS") {
-        return res.status(204).end();
+        res.writeHead(204);
+        res.end();
+        return;
     }
 
     const url = new URL(req.url, baseUrl);
