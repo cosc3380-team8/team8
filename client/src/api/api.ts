@@ -33,20 +33,19 @@ function assertEmailFree(s: DBState, email: string, own?: { table: 'members' | '
   if (clash) throw new Error('That email address is already in use.');
 }
 
-export const login = (email: string, password: string): Promise<Session> =>
-  run((s) => {
-    rules.expireHolds(s);
-    const e = email.trim().toLowerCase();
-    const m = s.members.find((x) => x.email.toLowerCase() === e);
-    if (m && m.is_active && m.password === password) {
-      return { id: m.user_id, name: fullName(m), email: m.email, role: m.role };
-    }
-    const st = s.staff.find((x) => x.email.toLowerCase() === e);
-    if (st && st.is_active && st.password === password) {
-      return { id: st.staff_id, name: fullName(st), email: st.email, role: st.is_admin ? 'admin' : 'employee' };
-    }
-    throw new Error('Invalid email or password.');
+export const login = async (email: string, password: string): Promise<Session> => {
+  const response = await fetch('https://umas-library-server.vercel.app/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
   });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Login failed');
+  }
+
+  return data as Session;
+};
 
 const authorsOf = (s: DBState, bookId: number): Author[] =>
   s.bookAuthors
@@ -66,6 +65,24 @@ export const listBooks = async (): Promise<BookView[]> => {
   }
 
   return response.json() as Promise<BookView[]>;
+};
+
+export const listServerMembers = async (): Promise<Member[]> => {
+  const response = await fetch('https://umas-library-server.vercel.app/members');
+  if (!response.ok) {
+    throw new Error('Failed to fetch members');
+  }
+
+  return response.json() as Promise<Member[]>;
+};
+
+export const listServerAuthors = async (): Promise<Author[]> => {
+  const response = await fetch('https://umas-library-server.vercel.app/report-authors');
+  if (!response.ok) {
+    throw new Error('Failed to fetch authors');
+  }
+
+  return response.json() as Promise<Author[]>;
 };
 
 export const listMedia = (): Promise<MediaView[]> =>

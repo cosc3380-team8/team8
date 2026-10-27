@@ -237,7 +237,31 @@ GROUP BY mi.title, mi.media_type`;
 
 type Params = Record<string, string>;
 
+// These run on the server against Azure SQL. The others still use the demo data.
+const SERVER_URL = 'https://umas-library-server.vercel.app';
+const SERVER_QUERIES = new Set(['member-items', 'overdue', 'availability']);
+const SERVER_REPORTS = new Set(['popular', 'fines', 'activity']);
+
+async function fromServer<T>(path: string): Promise<T> {
+  const response = await fetch(`${SERVER_URL}${path}`);
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(body.error || 'Request failed');
+  }
+  return body as T;
+}
+
+const toSearch = (values: Record<string, string | undefined>) => {
+  const search = new URLSearchParams();
+  Object.entries(values).forEach(([key, value]) => { if (value) search.set(key, value); });
+  const text = search.toString();
+  return text ? `?${text}` : '';
+};
+
 export async function runQuery(id: string, p: Params): Promise<TableResult> {
+  if (SERVER_QUERIES.has(id)) {
+    return fromServer<TableResult>(`/queries/${id}${toSearch(p)}`);
+  }
   const s = loadState();
   switch (id) {
     case 'member-items': return qMemberItems(s, Number(p.userId));
@@ -256,6 +280,9 @@ export async function runReport(id: string, f: ReportFilters = {}): Promise<Repo
   // skip unsupported filters
   const used: ReportFilters = {};
   def.filters.forEach((k) => { if (f[k]) used[k] = f[k]; });
+  if (SERVER_REPORTS.has(id)) {
+    return fromServer<ReportResult>(`/reports/${id}${toSearch({ ...used })}`);
+  }
   switch (id) {
     case 'popular': return rPopular(s, used);
     case 'history': return rHistory(s, used);

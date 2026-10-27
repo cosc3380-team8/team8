@@ -130,15 +130,72 @@ export async function runQuery(database, id, params) {
     throw badRequest('Unknown query.');
 }
 
+// Report filters from the Reports page. Empty ones are sent to SQL as NULL and skipped.
+function readFilters(params) {
+    const userId = params.userId ? Number(params.userId) : null;
+    const authorId = params.authorId ? Number(params.authorId) : null;
+    if ((userId !== null && !Number.isInteger(userId)) || (authorId !== null && !Number.isInteger(authorId))) {
+        throw badRequest('Unknown member or author.');
+    }
+    const keyword = params.keyword ? String(params.keyword).trim() : '';
+    if (keyword.length > 100) {
+        throw badRequest('Search word is too long');
+    }
+    const filters = {
+        from: readDate(params.from, '2000-01-01'),
+        to: readDate(params.to, '2100-12-31'),
+        userId,
+        authorId,
+        role: params.role === 'student' || params.role === 'faculty' ? params.role : null,
+        kind: params.kind === 'book' || params.kind === 'media' ? params.kind : null,
+        keyword: keyword || null,
+    };
+    if (filters.from > filters.to) {
+        throw badRequest('The start date must be before the end date.');
+    }
+    return filters;
+}
+
+function withFilters(request, f) {
+    return request
+        .input('from', sql.NVarChar(10), f.from)
+        .input('to', sql.NVarChar(10), f.to)
+        .input('userId', sql.Int, f.userId)
+        .input('authorId', sql.Int, f.authorId)
+        .input('role', sql.NVarChar(10), f.role)
+        .input('kind', sql.NVarChar(10), f.kind)
+        .input('keyword', sql.NVarChar(100), f.keyword);
+}
+
+// Filters on the member (u) and on the item (c, b, m).
+const MEMBER_FILTERS = `
+                  AND (@userId IS NULL OR u.user_id = @userId)
+                  AND (@role IS NULL OR u.is_faculty = CASE WHEN @role = 'faculty' THEN 1 ELSE 0 END)`;
+const ITEM_FILTERS = `
+                  AND (@authorId IS NULL OR EXISTS (SELECT 1 FROM book_author AS ba
+                                                    WHERE ba.book_id = c.book_id AND ba.author_id = @authorId))
+                  AND (@keyword IS NULL OR COALESCE(b.title, m.title) LIKE N'%' + @keyword + N'%')
+                  AND (@kind IS NULL OR (@kind = 'book' AND c.book_id IS NOT NULL)
+                                     OR (@kind = 'media' AND c.media_id IS NOT NULL))`;
+
+export async function listReportAuthors(database) {
+    const result = await database
+        .request()
+        .query(`
+            SELECT a.author_id, a.first_name, a.last_name
+            FROM author AS a
+            WHERE EXISTS (SELECT 1 FROM book_author AS ba WHERE ba.author_id = a.author_id)
+            ORDER BY a.last_name, a.first_name
+        `);
+
+    return result.recordset;
+}
+
 export async function runReport(database, id, params) {
-    const from = readDate(params.from, '2000-01-01');
-    const to = readDate(params.to, '2100-12-31');
+    const f = readFilters(params);
 
     if (id === 'popular') {
-        const result = await database
-            .request()
-            .input('from', sql.NVarChar(10), from)
-            .input('to', sql.NVarChar(10), to)
+        const result = await withFilters(database.request(), f)
             .query(`
                 SELECT TOP 10
                        COALESCE(b.title, m.title) AS [Title],
@@ -151,7 +208,7 @@ export async function runReport(database, id, params) {
                 JOIN copies AS c ON c.copy_id = l.copy_id
                 LEFT JOIN book AS b ON b.book_id = c.book_id
                 LEFT JOIN media AS m ON m.media_id = c.media_id
-                WHERE l.borrow_date BETWEEN CAST(@from AS date) AND CAST(@to AS date)
+                WHERE l.borrow_date BETWEEN CAST(@from AS date) AND CAST(@to AS date)` + MEMBER_FILTERS + ITEM_FILTERS + `
                 GROUP BY COALESCE(b.title, m.title),
                          CASE WHEN c.book_id IS NOT NULL THEN N'Book' ELSE N'Media' END
                 ORDER BY [Times borrowed] DESC, [Title]
@@ -174,10 +231,7 @@ export async function runReport(database, id, params) {
     }
 
     if (id === 'fines') {
-        const result = await database
-            .request()
-            .input('from', sql.NVarChar(10), from)
-            .input('to', sql.NVarChar(10), to)
+        const result = await withFilters(database.request(), f)
             .query(`
                 SELECT FORMAT(l.return_date, 'yyyy-MM') AS [Month],
                        COUNT(*) AS [Fines issued],
@@ -187,7 +241,11 @@ export async function runReport(database, id, params) {
                        SUM(CASE WHEN fs.paid_status = 1 THEN 1 ELSE 0 END) AS [Fully paid]
                 FROM fine_status AS fs
                 JOIN loan AS l ON l.loan_id = fs.loan_id
-                WHERE l.return_date BETWEEN CAST(@from AS date) AND CAST(@to AS date)
+                JOIN [user] AS u ON u.user_id = l.user_id
+                JOIN copies AS c ON c.copy_id = l.copy_id
+                LEFT JOIN book AS b ON b.book_id = c.book_id
+                LEFT JOIN media AS m ON m.media_id = c.media_id
+                WHERE l.return_date BETWEEN CAST(@from AS date) AND CAST(@to AS date)` + MEMBER_FILTERS + ITEM_FILTERS + `
                 GROUP BY FORMAT(l.return_date, 'yyyy-MM')
                 ORDER BY [Month]
             `);
@@ -212,10 +270,8 @@ export async function runReport(database, id, params) {
     }
 
     if (id === 'activity') {
-        const result = await database
-            .request()
-            .input('from', sql.NVarChar(10), from)
-            .input('to', sql.NVarChar(10), to)
+        // Item filters go inside the loan subquery so members with no matching loans still count.
+        const result = await withFilters(database.request(), f)
             .query(`
                 SELECT CASE WHEN u.is_faculty = 1 THEN N'Faculty' ELSE N'Student' END AS [Role],
                        COUNT(DISTINCT u.user_id) AS [Members],
@@ -225,9 +281,15 @@ export async function runReport(database, id, params) {
                        SUM(CASE WHEN l.return_date > l.due_date THEN 1 ELSE 0 END) AS [Returned late],
                        CAST(COUNT(l.loan_id) * 1.0 / COUNT(DISTINCT u.user_id) AS decimal(6,2)) AS [Avg loans / member]
                 FROM [user] AS u
-                LEFT JOIN loan AS l
-                       ON l.user_id = u.user_id
-                      AND l.borrow_date BETWEEN CAST(@from AS date) AND CAST(@to AS date)
+                LEFT JOIN (
+                    SELECT l.loan_id, l.user_id, l.due_date, l.return_date
+                    FROM loan AS l
+                    JOIN copies AS c ON c.copy_id = l.copy_id
+                    LEFT JOIN book AS b ON b.book_id = c.book_id
+                    LEFT JOIN media AS m ON m.media_id = c.media_id
+                    WHERE l.borrow_date BETWEEN CAST(@from AS date) AND CAST(@to AS date)` + ITEM_FILTERS + `
+                ) AS l ON l.user_id = u.user_id
+                WHERE 1 = 1` + MEMBER_FILTERS + `
                 GROUP BY u.is_faculty
                 ORDER BY [Role] DESC
             `);

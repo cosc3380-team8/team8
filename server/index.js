@@ -6,7 +6,7 @@ import { listLoans } from './api/loans.js';
 import { listMedia } from './api/media.js';
 import { listRooms } from './api/rooms.js';
 import { listMembers } from './api/members.js';
-import { runQuery, runReport } from './api/reports.js';
+import { runQuery, runReport, listReportAuthors } from './api/reports.js';
 import { login, signup } from './api/auth.js';
 
 const port = Number(process.env.PORT) || 3000;
@@ -178,6 +178,19 @@ const server = http.createServer(async (req, res) => {
         return;
     }
         
+    else if (req.method === 'GET' && url.pathname === '/report-authors') {
+        try {
+            const database = await sql.connect(await getSqlConfig());
+            const authors = await listReportAuthors(database);
+            res.writeHead(200, { 'Content-Type': 'application/json'});
+            res.end(JSON.stringify(authors));
+        } catch (error) {
+            console.error('Error fetching authors:', error);
+            res.writeHead(500, { 'Content-Type': 'application/json'});
+            res.end(JSON.stringify({ error: 'An error occurred while fetching authors.' }));
+        }
+        return;
+    }
     else if (req.method === 'GET' && url.pathname.startsWith('/queries/')) {
         try {
             const database = await sql.connect(await getSqlConfig());
