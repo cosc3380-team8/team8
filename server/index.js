@@ -64,10 +64,10 @@ const server = http.createServer(async (req, res) => {
         return;
     }
     else if (req.method === 'POST' && url.pathname === '/books') {
-        
+        return;
     }
     else if (req.method === 'DELETE' && url.pathname.startsWith('/books')) {
-        
+        return;
     }
 
     // Route handlers for media
@@ -90,10 +90,10 @@ const server = http.createServer(async (req, res) => {
         return;
     }
     else if (req.method === 'POST' && url.pathname === '/media') {
-        
+        return;
     }
     else if (req.method === 'DELETE' && url.pathname.startsWith('/media')) {
-
+        return;
     }
 
     // Route handlers for loans
@@ -120,10 +120,10 @@ const server = http.createServer(async (req, res) => {
         return;
     }
     else if (req.method === 'POST' && url.pathname === '/loans') {
-        
+        return;
     }
     else if (req.method === 'DELETE' && url.pathname.startsWith('/loans')) {
-        
+        return;
     }
         
     // Route handlers for rooms
@@ -146,10 +146,10 @@ const server = http.createServer(async (req, res) => {
         return;
     }
     else if (req.method === 'POST' && url.pathname === '/rooms') {
-        
+        return;
     }
     else if (req.method === 'DELETE' && url.pathname.startsWith('/rooms')) {
-        
+        return;
     }
         
     // Route handlers for members
@@ -172,10 +172,10 @@ const server = http.createServer(async (req, res) => {
         return;
     }
     else if (req.method === 'POST' && url.pathname === '/members') {
-        
+        return;
     }
     else if (req.method === 'DELETE' && url.pathname.startsWith('/members')) {
-        
+        return;
     }
         
     else if (req.method === 'GET' && url.pathname.startsWith('/queries/')) {
