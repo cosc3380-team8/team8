@@ -85,13 +85,13 @@ export const listServerAuthors = async (): Promise<Author[]> => {
   return response.json() as Promise<Author[]>;
 };
 
-export const listMedia = (): Promise<MediaView[]> =>
-  run((s) =>
-    s.media.map((m) => {
-      const copies = s.mediaCopies.filter((c) => c.media_id === m.media_id);
-      return { ...m, total_copies: copies.length, available_copies: copies.filter((c) => c.status === 'available').length };
-    }),
-  );
+export const listMedia = (): Promise<MediaView[]> => {
+  const response = await fetch('https://umas-library-server.vercel.app/media');
+  if (!response.ok) {
+    throw new Error('Failed to fetch authors');
+  }
+  return response.json() as Promise<MediaView[]>;
+};
 
 export const listAuthors = (): Promise<Author[]> => run((s) => s.authors);
 export const listRooms = (): Promise<Room[]> => run((s) => s.rooms);
