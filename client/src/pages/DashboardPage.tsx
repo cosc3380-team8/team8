@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import * as api from '../api/api';
 import { useAuth } from '../auth/AuthContext';
 import { LIMITS, STUDENT_LIMIT_MESSAGE } from '../api/rules';
@@ -25,25 +27,77 @@ function PatronDashboard() {
   const holds = useLoad(() => api.listHolds({ userId: uid, activeOnly: true }), [uid]);
   const fines = useLoad(() => api.listFines(uid), [uid]);
   const rooms = useLoad(() => api.listReservations(uid), [uid]);
+  const notes = useLoad(() => api.listNotifications(uid), [uid]);
   const { run, banner } = useAction();
+  const [showNotes, setShowNotes] = useState(() => {
+    try { return localStorage.getItem('showNotes') !== 'false'; } catch { return true; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('showNotes', String(showNotes)); } catch { /* ignore */ }
+  }, [showNotes]);
+  const navigate = useNavigate();
+  // single click toggles alerts, double click opens notifications
+  const clickTimer = useRef<number>();
+  const onBellClick = () => {
+    window.clearTimeout(clickTimer.current);
+    clickTimer.current = window.setTimeout(() => setShowNotes((o) => !o), 250);
+  };
+  const onBellDoubleClick = () => {
+    window.clearTimeout(clickTimer.current);
+    navigate('/notifications');
+  };
+  useEffect(() => () => window.clearTimeout(clickTimer.current), []);
   const reloadAll = () => { loans.reload(); holds.reload(); fines.reload(); rooms.reload(); };
+  const unread = (notes.data ?? []).filter((n) => !n.is_read);
+  const unpaid = (fines.data ?? []).filter((f) => f.paid_status === 'unpaid');
 
   const active = loans.data ?? [];
   const atLimit = active.length >= limit.maxItems;
+  const overdue = active.filter((l) => l.status === 'overdue');
+  const dueSoon = active.filter((l) => l.days_until_due !== null && l.days_until_due >= 0 && l.days_until_due <= 2);
+  const alertCount = overdue.length + dueSoon.length + (unread.length > 0 ? 1 : 0) + (unpaid.length > 0 ? 1 : 0) + (atLimit ? 1 : 0);
 
   return (
     <>
-      <PageHeader title={`Welcome, ${session!.name.split(' ')[0]}`} subtitle={`${role === 'student' ? 'Student' : 'Faculty'} account · up to ${limit.maxItems} items for ${limit.days} days each`} />
+      <PageHeader title={`Welcome, ${session!.name.split(' ')[0]}`}
+        titleAside={
+          <button className={showNotes ? 'bell-toggle' : 'bell-toggle off'} onClick={onBellClick} onDoubleClick={onBellDoubleClick}
+            aria-label={showNotes ? 'Hide notifications' : 'Show notifications'} aria-pressed={showNotes}
+            title={`${showNotes ? 'Hide' : 'Show'} notifications · double-click to open them all`}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3a6 6 0 0 0-6 6v3.5L4.5 15a1 1 0 0 0 .9 1.5h13.2a1 1 0 0 0 .9-1.5L18 12.5V9a6 6 0 0 0-6-6z" />
+              <circle cx="12" cy="19.5" r="2" />
+              {!showNotes && <line x1="4" y1="3" x2="20" y2="21" />}
+            </svg>
+            {alertCount > 0 && <span className="bell-count">{alertCount}</span>}
+          </button>
+        }
+        subtitle={`${role === 'student' ? 'Student' : 'Faculty'} account · up to ${limit.maxItems} items for ${limit.days} days each`} />
       {banner}
-      {active.filter((l) => l.status === 'overdue').map((l) => (
-        <Alert key={l.loan_id} kind="error"><strong>{l.title}</strong> is overdue (due {fmtDate(l.due_date)}). Fines are $5 plus $1 for each full week late.</Alert>
-      ))}
-      {active.filter((l) => l.days_until_due !== null && l.days_until_due >= 0 && l.days_until_due <= 2).map((l) => (
-        <Alert key={l.loan_id} kind="warning">
-          {l.title} must be returned {l.days_until_due === 0 ? 'today' : `in ${l.days_until_due} day${l.days_until_due === 1 ? '' : 's'}`}.
-        </Alert>
-      ))}
-      {atLimit && <Alert kind="info">{role === 'student' ? STUDENT_LIMIT_MESSAGE : `You have reached the faculty limit of ${limit.maxItems} items.`}</Alert>}
+      {showNotes && (
+        <div className="alert-stack">
+          {overdue.map((l) => (
+            <Alert key={l.loan_id} kind="error"><strong>{l.title}</strong> is overdue (due {fmtDate(l.due_date)}). Fines are $5 plus $1 for each full week late.</Alert>
+          ))}
+          {dueSoon.map((l) => (
+            <Alert key={l.loan_id} kind="warning">
+              {l.title} must be returned {l.days_until_due === 0 ? 'today' : `in ${l.days_until_due} day${l.days_until_due === 1 ? '' : 's'}`}.
+            </Alert>
+          ))}
+          {unread.length > 0 && (
+            <Alert kind="info">
+              You have {unread.length} new notification{unread.length === 1 ? '' : 's'}: {unread[0].message}{' '}
+              <Link to="/notifications">See all</Link>
+            </Alert>
+          )}
+          {unpaid.length > 0 && (
+            <Alert kind="warning">
+              You owe {money(unpaid.reduce((a, f) => a + f.amount, 0))} in fines. Fines are paid in person at the front desk (cash, card or check), and you will get a receipt.
+            </Alert>
+          )}
+          {atLimit && <Alert kind="info">{role === 'student' ? STUDENT_LIMIT_MESSAGE : `You have reached the faculty limit of ${limit.maxItems} items.`}</Alert>}
+        </div>
+      )}
 
       <Card title={`Items on loan (${active.length}/${limit.maxItems})`}>
         <DataTable rows={active} empty="You have nothing checked out. Items are borrowed in person at the desk."
@@ -72,13 +126,13 @@ function PatronDashboard() {
             { header: 'Item', cell: (f) => f.title },
             { header: 'Returned', cell: (f) => fmtDate(f.return_date) },
             { header: 'Amount', cell: (f) => money(f.amount) },
-            { header: 'Status', cell: (f) => f.paid_status === 'paid' ? <Badge tone="green">Paid · {f.receipt_code}</Badge> : <Badge tone="red">Unpaid</Badge> },
-            { header: '', cell: (f) => f.paid_status === 'unpaid' && <button className="btn small primary" onClick={() => run(() => api.doPayFine(f.fine_id, 'Online card'), 'Payment received. Receipt issued.', reloadAll)}>Pay online</button> },
+            { header: 'Status', cell: (f) => f.paid_status === 'paid' ? <Badge tone="green">Paid · {f.receipt_code}</Badge> : <Badge tone="red">Unpaid · pay at the desk</Badge> },
+            { header: '', cell: (f) => f.paid_status === 'paid' && <Link className="btn small" to="/receipts">View receipt</Link> },
           ]} />
       </Card>
 
       <Card title="My room reservations">
-        <DataTable rows={rooms.data ?? []} empty="No reservations. Book one on the Study Rooms page."
+        <DataTable rows={(rooms.data ?? []).filter((r) => !r.archived)} empty="No upcoming reservations. Book one on the Study Rooms page."
           columns={[
             { header: 'Room', cell: (r) => r.room_number },
             { header: 'From', cell: (r) => fmtDateTime(r.start_time) },

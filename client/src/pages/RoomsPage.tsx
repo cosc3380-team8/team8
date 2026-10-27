@@ -17,6 +17,10 @@ export default function RoomsPage() {
   const [start, setStart] = useState(`${tomorrow}T10:00`);
   const [end, setEnd] = useState(`${tomorrow}T11:00`);
 
+  const all = res.data ?? [];
+  const upcoming = all.filter((r) => !r.archived);
+  const archived = all.filter((r) => r.archived).reverse();
+
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const uid = isStaff ? Number(memberId) : session!.id;
@@ -50,8 +54,9 @@ export default function RoomsPage() {
           <button className="btn primary">Reserve</button>
         </form>
       </Card>
-      <Card title={isStaff ? 'All reservations' : 'My reservations'}>
-        <DataTable rows={res.data ?? []} empty="No reservations."
+      <Card title={isStaff ? 'Upcoming reservations' : 'My upcoming reservations'}>
+        <p className="muted">When a reservation’s end time passes, it is archived automatically and moves to the list below.</p>
+        <DataTable rows={upcoming} empty="No upcoming reservations."
           columns={[
             { header: 'Room', cell: (r) => r.room_number },
             { header: 'Member', cell: (r) => r.member_name },
@@ -59,6 +64,18 @@ export default function RoomsPage() {
             { header: 'To', cell: (r) => fmtDateTime(r.end_time) },
             { header: '', cell: (r) => <button className="btn small danger" onClick={() => run(() => api.cancelReservation(r.reservation_id), 'Reservation cancelled.', res.reload)}>Cancel</button> },
           ]} />
+      </Card>
+      <Card title={`Archived reservations (${archived.length})`}>
+        <details>
+          <summary>Show past reservations</summary>
+          <DataTable rows={archived} empty="No past reservations."
+            columns={[
+              { header: 'Room', cell: (r) => r.room_number },
+              { header: 'Member', cell: (r) => r.member_name },
+              { header: 'From', cell: (r) => fmtDateTime(r.start_time) },
+              { header: 'To', cell: (r) => fmtDateTime(r.end_time) },
+            ]} />
+        </details>
       </Card>
     </>
   );

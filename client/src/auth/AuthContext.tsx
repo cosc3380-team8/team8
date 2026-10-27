@@ -5,7 +5,6 @@ import type { Role, Session } from '../types';
 interface AuthValue {
   session: Session | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (input: api.SignupInput) => Promise<void>;
   logout: () => void;
   isStaff: boolean;
   isAdmin: boolean;
@@ -33,12 +32,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(s);
   }, []);
 
-  const signup = useCallback(async (input: api.SignupInput) => {
-    const s = await api.signup(input);
-    sessionStorage.setItem(KEY, JSON.stringify(s));
-    setSession(s);
-  }, []);
-
   const logout = useCallback(() => {
     sessionStorage.removeItem(KEY);
     setSession(null);
@@ -47,12 +40,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthValue>(() => {
     const role: Role | undefined = session?.role;
     return {
-      session, login, signup, logout,
+      session, login, logout,
       isStaff: role === 'employee' || role === 'admin',
       isAdmin: role === 'admin',
       isPatron: role === 'student' || role === 'faculty',
     };
-  }, [session, login, signup, logout]);
+  }, [session, login, logout]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -6,6 +6,15 @@ export function today(): string {
   return toIso(new Date());
 }
 
+// now for today, else a random time in library hours (9am-7pm) on that day
+export function stampFor(iso: string): string {
+  if (iso >= today()) return new Date().toISOString();
+  const d = parseIso(iso);
+  d.setHours(9, 0, 0, 0);
+  d.setMinutes(Math.floor(Math.random() * 10 * 60));
+  return d.toISOString();
+}
+
 export function parseIso(iso: string): Date {
   const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
   return new Date(y, m - 1, d);

@@ -1,6 +1,6 @@
 import { DBState, emptyState, nextId } from './state';
 import { addDays, today } from '../utils/dates';
-import { checkout, log, payFine, placeHold, returnLoan } from './rules';
+import { LIMITS, checkout, log, payFine, placeHold, returnLoan } from './rules';
 import type { ItemKind } from '../types';
 
 export function buildSeed(): DBState {
@@ -26,29 +26,29 @@ export function buildSeed(): DBState {
   [['Harper', 'Lee'], ['George', 'Orwell'], ['Jane', 'Austen'], ['Mary', 'Shelley'], ['Fyodor', 'Dostoevsky'], ['Albert', 'Camus'], ['Oscar', 'Wilde'], ['F. Scott', 'Fitzgerald'], ['Bram', 'Stoker'], ['Alexandre', 'Dumas'], ['Neil', 'Gaiman'], ['Lewis', 'Carroll'], ['Ramez', 'Elmasri'], ['Shamkant B.', 'Navathe'], ['William', 'Stallings']]
     .forEach(([first_name, last_name]) => s.authors.push({ author_id: nextId(s, 'authors'), first_name, last_name }));
 
-  const books: [string, string, number[], number][] = [
-    ['To Kill a Mockingbird', 'Harper Perennial', [1], 2],
-    ['1984', 'Signet Classics', [2], 2],
-    ['Animal Farm', 'Signet Classics', [2], 1],
-    ['Pride and Prejudice', 'Penguin Classics', [3], 2],
-    ['Frankenstein', 'Penguin Classics', [4], 2],
-    ['Crime and Punishment', 'Vintage Classics', [5], 1],
-    ['The Stranger', 'Vintage International', [6], 1],
-    ['The Picture of Dorian Gray', 'Penguin Classics', [7], 3],
-    ['The Great Gatsby', 'Scribner', [8], 2],
-    ['Dracula', 'Penguin Classics', [9], 2],
-    ['The Count of Monte Cristo', 'Penguin Classics', [10], 2],
-    ['Coraline', 'HarperCollins', [11], 2],
-    ['Alice in Wonderland', 'Macmillan', [12], 2],
-    ['Fundamentals of Database Systems, 7th Edition', 'Pearson', [13, 14], 3],
-    ['Operating Systems: Internals and Design Principles, 9th Edition', 'Prentice Hall, 2017', [15], 3],
-    ['The Idiot', 'Penguin Classics', [5], 2],
-    ['The Brothers Karamazov', 'Vintage Classics', [5], 2],
-    ['White Nights', 'Penguin Classics', [5], 1],
+  const books: [string, string, string, number[], number][] = [
+    ['To Kill a Mockingbird', '9780060935467', 'Harper Perennial', [1], 2],
+    ['1984', '9780451524935', 'Signet Classics', [2], 2],
+    ['Animal Farm', '9780451526342', 'Signet Classics', [2], 1],
+    ['Pride and Prejudice', '9780141439518', 'Penguin Classics', [3], 2],
+    ['Frankenstein', '9780141439471', 'Penguin Classics', [4], 2],
+    ['Crime and Punishment', '9780679734505', 'Vintage Classics', [5], 1],
+    ['The Stranger', '9780679720201', 'Vintage International', [6], 1],
+    ['The Picture of Dorian Gray', '9780141439570', 'Penguin Classics', [7], 3],
+    ['The Great Gatsby', '9780743273565', 'Scribner', [8], 2],
+    ['Dracula', '9780141439846', 'Penguin Classics', [9], 2],
+    ['The Count of Monte Cristo', '9780140449266', 'Penguin Classics', [10], 2],
+    ['Coraline', '9780380807345', 'HarperCollins', [11], 2],
+    ['Alice in Wonderland', '9781509865390', 'Macmillan', [12], 2],
+    ['Fundamentals of Database Systems, 7th Edition', '9780133970777', 'Pearson', [13, 14], 3],
+    ['Operating Systems: Internals and Design Principles, 9th Edition', '9780134670959', 'Prentice Hall, 2017', [15], 3],
+    ['The Idiot', '9780140447927', 'Penguin Classics', [5], 2],
+    ['The Brothers Karamazov', '9780679729259', 'Vintage Classics', [5], 2],
+    ['White Nights', '9780141398921', 'Penguin Classics', [5], 1],
   ];
-  books.forEach(([title, publisher, author_ids, copies]) => {
+  books.forEach(([title, isbn, publisher, author_ids, copies]) => {
     const book_id = nextId(s, 'books');
-    s.books.push({ book_id, title, publisher, is_active: true });
+    s.books.push({ book_id, title, isbn, publisher, is_active: true });
     author_ids.forEach((author_id, i) => s.bookAuthors.push({ book_id, author_id, author_order: i + 1 }));
     for (let i = 0; i < copies; i++) s.bookCopies.push({ copy_id: nextId(s, 'bookCopies'), book_id, status: 'available' });
   });
@@ -92,15 +92,20 @@ export function buildSeed(): DBState {
   });
   paidLoanIds.forEach((id) => {
     const fine = s.fines.find((f) => f.loan_id === id);
-    if (fine) payFine(s, fine.fine_id, 'Card', ago(29));
+    if (fine) payFine(s, fine.fine_id, 'Card', 1, ago(29));
   });
 
+  // borrow dates based on each member's loan limit
+  const loanDays = (user: number) => LIMITS[s.members.find((m) => m.user_id === user)!.role].days;
+  const overdueBy = (user: number, n: number) => ago(loanDays(user) + n);
+  const dueIn = (user: number, n: number) => ago(loanDays(user) - n);
+
   checkout(s, 1, 'book', 5, ago(5));
-  checkout(s, 1, 'book', 2, ago(19));
-  checkout(s, 1, 'book', 6, ago(25));
+  checkout(s, 1, 'book', 2, dueIn(1, 1));
+  checkout(s, 1, 'book', 6, overdueBy(1, 5));
   checkout(s, 2, 'book', 3, ago(2));
   checkout(s, 2, 'media', 2, ago(4));
-  checkout(s, 3, 'book', 14, ago(40));
+  checkout(s, 3, 'book', 14, overdueBy(3, 10));
   checkout(s, 4, 'book', 7, ago(3));
   checkout(s, 5, 'media', 4, ago(1));
 
@@ -109,6 +114,7 @@ export function buildSeed(): DBState {
   placeHold(s, 3, 'book', 6, t);
 
   s.reservations.push(
+    { reservation_id: nextId(s, 'reservations'), room_id: 2, user_id: 2, start_time: `${ago(3)}T13:00`, end_time: `${ago(3)}T15:00` },
     { reservation_id: nextId(s, 'reservations'), room_id: 1, user_id: 1, start_time: `${addDays(t, 1)}T10:00`, end_time: `${addDays(t, 1)}T12:00` },
     { reservation_id: nextId(s, 'reservations'), room_id: 3, user_id: 3, start_time: `${addDays(t, 1)}T14:00`, end_time: `${addDays(t, 1)}T16:00` },
   );

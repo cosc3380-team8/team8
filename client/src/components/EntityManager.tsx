@@ -29,11 +29,11 @@ interface Props {
   onDelete?: (row: Record<string, any>) => Promise<unknown>;
   reload: () => void;
   deleteLabel?: string;
-
+  canAdd?: boolean;
   note?: string;
 }
 
-export default function EntityManager({ title, noun, rows, idKey, fields, defaults, onSave, onDelete, reload, deleteLabel = 'Archive', note }: Props) {
+export default function EntityManager({ title, noun, rows, idKey, fields, defaults, onSave, onDelete, reload, deleteLabel = 'Archive', canAdd = true, note }: Props) {
   const [editing, setEditing] = useState<Record<string, any> | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [formError, setFormError] = useState('');
@@ -96,7 +96,7 @@ export default function EntityManager({ title, noun, rows, idKey, fields, defaul
   ];
 
   return (
-    <Card title={title} actions={<button className="btn primary" onClick={() => open()}>+ Add {noun.toLowerCase()}</button>}>
+    <Card title={title} actions={canAdd && <button className="btn primary" onClick={() => open()}>+ Add {noun.toLowerCase()}</button>}>
       {note && <p className="muted">{note}</p>}
       {banner}
       <DataTable columns={columns} rows={rows} empty={`No ${noun.toLowerCase()} records yet.`} />

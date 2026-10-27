@@ -4,7 +4,6 @@ import { useAuth } from './auth/AuthContext';
 import Layout from './components/Layout';
 import type { Role } from './types';
 import LoginPage from './pages/LoginPage';
-import SignupPage from './pages/SignupPage';
 import DashboardPage from './pages/DashboardPage';
 import CatalogPage from './pages/CatalogPage';
 import RoomsPage from './pages/RoomsPage';
@@ -17,6 +16,8 @@ import StaffPage from './pages/StaffPage';
 import QueriesPage from './pages/QueriesPage';
 import ReportsPage from './pages/ReportsPage';
 import TriggersPage from './pages/TriggersPage';
+import ReceiptsPage from './pages/ReceiptsPage';
+import NotificationsPage from './pages/NotificationsPage';
 
 function RequireRole({ roles, children }: { roles?: Role[]; children: ReactNode }) {
   const { session } = useAuth();
@@ -28,6 +29,7 @@ function RequireRole({ roles, children }: { roles?: Role[]; children: ReactNode 
 }
 
 const STAFF: Role[] = ['employee', 'admin'];
+const PATRONS: Role[] = ['student', 'faculty'];
 
 export default function App() {
   const { session } = useAuth();
@@ -37,19 +39,20 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={session ? <Navigate to="/" replace /> : <LoginPage />} />
-      <Route path="/signup" element={session ? <Navigate to="/" replace /> : <SignupPage />} />
       <Route path="/" element={page(<DashboardPage />)} />
       <Route path="/catalog" element={page(<CatalogPage />)} />
       <Route path="/rooms" element={page(<RoomsPage />)} />
+      <Route path="/receipts" element={page(<ReceiptsPage />)} />
+      <Route path="/notifications" element={page(<NotificationsPage />, PATRONS)} />
       <Route path="/circulation" element={page(<CirculationPage />, STAFF)} />
       <Route path="/manage/books" element={page(<ManageBooksPage />, STAFF)} />
       <Route path="/manage/media" element={page(<ManageMediaPage />, STAFF)} />
       <Route path="/manage/rooms" element={page(<ManageRoomsPage />, STAFF)} />
       <Route path="/members" element={page(<MembersPage />, STAFF)} />
       <Route path="/staff" element={page(<StaffPage />, ['admin'])} />
-      <Route path="/queries" element={page(<QueriesPage />, STAFF)} />
-      <Route path="/reports" element={page(<ReportsPage />, STAFF)} />
-      <Route path="/triggers" element={page(<TriggersPage />, STAFF)} />
+      <Route path="/queries" element={page(<QueriesPage />, ['admin'])} />
+      <Route path="/reports" element={page(<ReportsPage />, ['admin'])} />
+      <Route path="/triggers" element={page(<TriggersPage />, ['admin'])} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

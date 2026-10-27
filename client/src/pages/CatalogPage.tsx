@@ -12,6 +12,7 @@ export default function CatalogPage() {
   const { run, banner } = useAction();
   const reload = () => { books.reload(); media.reload(); };
   const needle = q.trim().toLowerCase();
+  const isbnNeedle = q.replace(/[^0-9Xx]/g, '').toUpperCase();
 
   const holdButton = (kind: 'book' | 'media', id: number, available: number) =>
     isPatron && (
@@ -30,15 +31,18 @@ export default function CatalogPage() {
       <Card>
         <div className="row between wrap">
           <Tabs tabs={[{ id: 'books', label: 'Books' }, { id: 'media', label: 'Media & devices' }]} value={tab} onChange={setTab} />
-          <input className="search" placeholder="Search title, author, type…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="search" placeholder="Search title, author, ISBN, type…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         {tab === 'books' ? (
           <DataTable
-            rows={(books.data ?? []).filter((b) => b.is_active && (`${b.title} ${b.author_name} ${b.publisher}`.toLowerCase().includes(needle)))}
+            rows={(books.data ?? []).filter((b) => b.is_active && (
+              `${b.title} ${b.author_name} ${b.publisher}`.toLowerCase().includes(needle)
+              || (isbnNeedle.length >= 3 && b.isbn.includes(isbnNeedle))))}
             empty="No books match."
             columns={[
               { header: 'Title', cell: (b) => <strong>{b.title}</strong> },
               { header: 'Author', cell: (b) => b.author_name },
+              { header: 'ISBN', cell: (b) => b.isbn || '—' },
               { header: 'Publisher', cell: (b) => b.publisher },
               { header: 'Availability', cell: (b) => avail(b.available_copies, b.total_copies) },
               { header: '', cell: (b) => holdButton('book', b.book_id, b.available_copies) },
