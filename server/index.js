@@ -7,9 +7,22 @@ import { listMedia } from './api/media.js';
 import { listRooms } from './api/rooms.js';
 import { listMembers } from './api/members.js';
 import { runQuery, runReport } from './api/reports.js';
+import { login, signup } from './api/auth.js';
 
 const port = Number(process.env.PORT) || 3000;
 const allowedOrigins = new Set(['http://localhost','https://umas-library.vercel.app']);
+
+// Read a JSON request body (Vercel may have parsed it already)
+async function readJson(req) {
+    if (req.body !== undefined) {
+        return typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body;
+    }
+    let body = '';
+    for await (const chunk of req) {
+        body += chunk;
+    }
+    return body ? JSON.parse(body) : {};
+}
 
 // Create the server and handle requests
 const server = http.createServer(async (req, res) => {
@@ -195,6 +208,44 @@ const server = http.createServer(async (req, res) => {
                 error: status === 400
                     ? error.message
                     : 'An error occurred while listing the fines.'
+            }));
+        }
+        return;
+    }
+    else if (req.method === 'POST' && url.pathname === '/login') {
+        try {
+            const database = await sql.connect(await getSqlConfig());
+            const body = await readJson(req);
+            const session = await login(database, body.email, body.password);
+            res.writeHead(200, { 'Content-Type': 'application/json'});
+            res.end(JSON.stringify(session));
+        } catch (error) {
+            const status = error.statusCode || 500;
+            console.error('Error logging in:', error);
+            res.writeHead(status, { 'Content-Type': 'application/json'});
+            res.end(JSON.stringify({
+                error: status === 400
+                    ? error.message
+                    : 'An error occurred while logging in.'
+            }));
+        }
+        return;
+    }
+    else if (req.method === 'POST' && url.pathname === '/signup') {
+        try {
+            const database = await sql.connect(await getSqlConfig());
+            const body = await readJson(req);
+            const session = await signup(database, body);
+            res.writeHead(201, { 'Content-Type': 'application/json'});
+            res.end(JSON.stringify(session));
+        } catch (error) {
+            const status = error.statusCode || 500;
+            console.error('Error signing up:', error);
+            res.writeHead(status, { 'Content-Type': 'application/json'});
+            res.end(JSON.stringify({
+                error: status === 400
+                    ? error.message
+                    : 'An error occurred while creating the account.'
             }));
         }
         return;
