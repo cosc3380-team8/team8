@@ -44,6 +44,7 @@ const server = http.createServer(async (req, res) => {
 
     const url = new URL(req.url, baseUrl);
 
+    // Route handlers for books
     if (req.method === 'GET' && url.pathname === '/books') {
         try {
             const database = await sql.connect(await getSqlConfig());
@@ -62,8 +63,6 @@ const server = http.createServer(async (req, res) => {
         }
         return;
     }
-        
-    // Route handlers for books
     else if (req.method === 'POST' && url.pathname === '/books') {
         
     }
