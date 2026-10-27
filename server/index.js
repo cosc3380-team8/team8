@@ -6,6 +6,8 @@ import { listLoans } from './api/loans.js';
 import { listMedia } from './api/media.js';
 import { listRooms } from './api/rooms.js';
 import { listMembers } from './api/members.js';
+import { listFines } from '.api/fines.js';
+import { listWaitlist } from 'apu.waitlist.js';
 import { runQuery, runReport, listReportAuthors } from './api/reports.js';
 import { login, signup } from './api/auth.js';
 
