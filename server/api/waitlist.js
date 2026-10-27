@@ -1,7 +1,7 @@
 import sql from 'mssql';
 
 export async function listWaitlist(database, { userId, activeOnly = false } = {}) {
-  const result = await database.poolconnection
+  const result = await database
     .request()
     .input('userId', sql.Int, userId ?? null)
     .input('activeOnly', sql.Bit, activeOnly)
