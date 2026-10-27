@@ -1,7 +1,4 @@
--- Team 8: Azure SQL Database version of the supplied MySQL schema.
--- Connect directly to an EMPTY project database, not master. Run this file once.
--- No rows are included. GO separates batches; run with DataGrip's script runner.
--- Use dbo.save_room_reservation for bookings; direct writes bypass its check.
+
 SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 SET ANSI_PADDING ON;
