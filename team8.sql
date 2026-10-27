@@ -1,9 +1,3 @@
--- MySQL dump 10.13  Distrib 26.7.0, for macos15 (arm64)
---
--- Host: 127.0.0.1    Database: TEAM8
--- ------------------------------------------------------
--- Server version	26.7.0
-
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
@@ -14,18 +8,11 @@
 /*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
 /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+
 SET @MYSQLDUMP_TEMP_LOG_BIN = @@SESSION.SQL_LOG_BIN;
 SET @@SESSION.SQL_LOG_BIN= 0;
 
---
--- GTID state at the beginning of the backup 
---
-
 SET @@GLOBAL.GTID_PURGED=/*!80000 '+'*/ 'ac689852-b9e9-11f1-8178-1306e4654c4c:1-29';
-
---
--- Table structure for table `author`
---
 
 DROP TABLE IF EXISTS `author`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -38,9 +25,6 @@ CREATE TABLE `author` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `book`
---
 
 DROP TABLE IF EXISTS `book`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -56,9 +40,6 @@ CREATE TABLE `book` (
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `book_author`
---
 
 DROP TABLE IF EXISTS `book_author`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -73,9 +54,7 @@ CREATE TABLE `book_author` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `copies`
---
+
 
 DROP TABLE IF EXISTS `copies`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -94,9 +73,7 @@ CREATE TABLE `copies` (
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `fine`
---
+
 
 DROP TABLE IF EXISTS `fine`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -112,9 +89,7 @@ CREATE TABLE `fine` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Temporary view structure for view `fine_status`
---
+
 
 DROP TABLE IF EXISTS `fine_status`;
 /*!50001 DROP VIEW IF EXISTS `fine_status`*/;
@@ -129,9 +104,7 @@ SET @saved_cs_client     = @@character_set_client;
  1 AS `paid_date`*/;
 SET character_set_client = @saved_cs_client;
 
---
--- Table structure for table `loan`
---
+
 
 DROP TABLE IF EXISTS `loan`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -155,9 +128,7 @@ CREATE TABLE `loan` (
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `media`
---
+
 
 DROP TABLE IF EXISTS `media`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -170,9 +141,6 @@ CREATE TABLE `media` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `payments`
---
 
 DROP TABLE IF EXISTS `payments`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -193,9 +161,7 @@ CREATE TABLE `payments` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `receipts`
---
+
 
 DROP TABLE IF EXISTS `receipts`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -212,9 +178,7 @@ CREATE TABLE `receipts` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `room`
---
+
 
 DROP TABLE IF EXISTS `room`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -229,9 +193,7 @@ CREATE TABLE `room` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `room_reservations`
---
+
 
 DROP TABLE IF EXISTS `room_reservations`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -251,9 +213,6 @@ CREATE TABLE `room_reservations` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `staff`
---
 
 DROP TABLE IF EXISTS `staff`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -270,9 +229,7 @@ CREATE TABLE `staff` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `user`
---
+
 
 DROP TABLE IF EXISTS `user`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -289,9 +246,7 @@ CREATE TABLE `user` (
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `waitlist`
---
+
 
 DROP TABLE IF EXISTS `waitlist`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -314,9 +269,7 @@ CREATE TABLE `waitlist` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping routines for database 'TEAM8'
---
+
 /*!50003 DROP PROCEDURE IF EXISTS `save_room_reservation` */;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
 /*!50003 SET @saved_cs_results     = @@character_set_results */ ;
@@ -415,9 +368,6 @@ DELIMITER ;
 /*!50003 SET character_set_results = @saved_cs_results */ ;
 /*!50003 SET collation_connection  = @saved_col_connection */ ;
 
---
--- Final view structure for view `fine_status`
---
 
 /*!50001 DROP VIEW IF EXISTS `fine_status`*/;
 /*!50001 SET @saved_cs_client          = @@character_set_client */;
@@ -442,5 +392,3 @@ SET @@SESSION.SQL_LOG_BIN = @MYSQLDUMP_TEMP_LOG_BIN;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
-
--- Dump completed on 2026-09-28 19:46:35
