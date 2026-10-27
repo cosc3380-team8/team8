@@ -62,6 +62,16 @@ const server = http.createServer(async (req, res) => {
         }
         return;
     }
+        
+    // Route handlers for books
+    else if (req.method === 'POST' && url.pathname === '/books') {
+        
+    }
+    else if (req.method === 'DELETE' && url.pathname.startsWith('/books')) {
+        
+    }
+
+    // Route handlers for media
     else if (req.method === 'GET' && url.pathname === '/media') {
         try {
             const database = await sql.connect(await getSqlConfig());
@@ -80,6 +90,14 @@ const server = http.createServer(async (req, res) => {
         }
         return;
     }
+    else if (req.method === 'POST' && url.pathname === '/media') {
+        
+    }
+    else if (req.method === 'DELETE' && url.pathname.startsWith('/media')) {
+
+    }
+
+    // Route handlers for loans
     else if (req.method === 'GET' && url.pathname === '/loans') {
         try {
             const database = await sql.connect(await getSqlConfig());
@@ -102,6 +120,14 @@ const server = http.createServer(async (req, res) => {
         }
         return;
     }
+    else if (req.method === 'POST' && url.pathname === '/loans') {
+        
+    }
+    else if (req.method === 'DELETE' && url.pathname.startsWith('/loans')) {
+        
+    }
+        
+    // Route handlers for rooms
     else if (req.method === 'GET' && url.pathname === '/rooms') {
         try {
             const database = await sql.connect(await getSqlConfig());
@@ -120,6 +146,14 @@ const server = http.createServer(async (req, res) => {
         }
         return;
     }
+    else if (req.method === 'POST' && url.pathname === '/rooms') {
+        
+    }
+    else if (req.method === 'DELETE' && url.pathname.startsWith('/rooms')) {
+        
+    }
+        
+    // Route handlers for members
     else if (req.method === 'GET' && url.pathname === '/members') {
         try {
             const database = await sql.connect(await getSqlConfig());
@@ -138,6 +172,13 @@ const server = http.createServer(async (req, res) => {
         }
         return;
     }
+    else if (req.method === 'POST' && url.pathname === '/members') {
+        
+    }
+    else if (req.method === 'DELETE' && url.pathname.startsWith('/members')) {
+        
+    }
+        
     else if (req.method === 'GET' && url.pathname.startsWith('/queries/')) {
         try {
             const database = await sql.connect(await getSqlConfig());
