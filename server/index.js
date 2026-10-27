@@ -234,6 +234,9 @@ const server = http.createServer(async (req, res) => {
     else if (req.method === 'GET' && url.pathname.startsWith('/holds')) {
         try {
             const database = await sql.connect(await getSqlConfig());
+            const userId = url.searchParams.get('user_id');
+            const activeOnly = url.searchParams.get('active_only') === 'true';
+            const waitlist = await listWaitlist(database, { userId, activeOnly });
             const holds = await listWaitlist(database);
             res.writeHead(200, { 'Content-Type': 'application/json'});
             res.end(JSON.stringify(holds));
@@ -252,7 +255,9 @@ const server = http.createServer(async (req, res) => {
     else if (req.method === 'GET' && url.pathname.startsWith('/fines')) {
         try {
             const database = await sql.connect(await getSqlConfig());
-            const fines = await listFines(database);
+            const userId = url.searchParams.get('user_id');
+            const activeOnly = url.searchParams.get('active_only') === 'true';
+            const fines = await listFines(database, { userId, activeOnly });
             res.writeHead(200, { 'Content-Type': 'application/json'});
             res.end(JSON.stringify(fines));
         } catch (error) {
