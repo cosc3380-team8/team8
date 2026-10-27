@@ -85,7 +85,7 @@ export const listServerAuthors = async (): Promise<Author[]> => {
   return response.json() as Promise<Author[]>;
 };
 
-export const listMedia = (): Promise<MediaView[]> => {
+export const listMedia = async (): Promise<MediaView[]> => {
   const response = await fetch('https://umas-library-server.vercel.app/media');
   if (!response.ok) {
     throw new Error('Failed to fetch authors');
