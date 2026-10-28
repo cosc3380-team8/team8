@@ -1,11 +1,12 @@
 import http from 'http';
 import sql from 'mssql';
 import { getSqlConfig } from './config.js';
-import { listBooks } from './api/books.js';
+import { listBooks, addBook, deleteBook } from './api/books.js';
 import { listLoans } from './api/loans.js';
-import { listMedia } from './api/media.js';
+import { listMedia, addMedia, deleteMedia} from './api/media.js';
 import { listRooms } from './api/rooms.js';
 import { listMembers } from './api/members.js';
+import { listStaff, saveStaff, deleteStaff } from './api/staff.js';
 import { listFines } from './api/fines.js';
 import { listWaitlist } from './api/waitlist.js';
 import { runQuery, runReport, listReportAuthors } from './api/reports.js';
@@ -181,7 +182,26 @@ const server = http.createServer(async (req, res) => {
     else if (req.method === 'DELETE' && url.pathname.startsWith('/members')) {
         return;
     }
-        
+
+    // Route handlers for staff
+    else if (req.method === 'GET' && url.pathname === '/staff') {
+        try {
+            const database = await sql.connect(await getSqlConfig());
+            const staff = await listStaff(database);
+            res.writeHead(200, { 'Content-Type': 'application/json'});
+            res.end(JSON.stringify(staff));
+        } catch (error) {
+            const status = error.statusCode || 500;
+            console.error('Error fetching staff:', error);
+            res.writeHead(status, { 'Content-Type': 'application/json'});
+            res.end(JSON.stringify({
+                error: status === 400
+                    ? error.message
+                    : 'An error occurred while fetching staff.'
+            }));
+        }
+    }
+    
     else if (req.method === 'GET' && url.pathname === '/report-authors') {
         try {
             const database = await sql.connect(await getSqlConfig());
@@ -320,5 +340,4 @@ const server = http.createServer(async (req, res) => {
 server.listen(port, () => {
     console.log(`Server started on port ${port}`);
 });
-
 
