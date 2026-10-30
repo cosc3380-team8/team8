@@ -9,7 +9,7 @@ import { listRooms } from './api/rooms.js';
 import { listMembers } from './api/members.js';
 import { listStaff, saveStaff, deleteStaff } from './api/staff.js';
 import { listFines } from './api/fines.js';
-import { listWaitlist } from './api/waitlist.js';
+import { listWaitlist, placeHold } from './api/waitlist.js';
 import { runQuery, runReport, listReportAuthors } from './api/reports.js';
 import { login, signup } from './api/auth.js';
 
@@ -279,6 +279,22 @@ const server = http.createServer(async (req, res) => {
             }));
         }
         return;
+    }
+        //added
+    else if (req.method === 'POST' && url.pathname === '/holds') {
+    try {
+        const database = await sql.connect(await getSqlConfig());
+        const body = await readJson(req);
+        const hold = await placeHold(database, body);
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(hold));
+    } catch (error) {
+        const status = error.statusCode || 500;
+        console.error('Error placing hold:', error);
+        res.writeHead(status, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: status === 400 ? error.message : 'An error occurred while placing the hold.' }));
+    }
+    return;
     }
     else if (req.method === 'GET' && url.pathname.startsWith('/holds')) {
         try {
