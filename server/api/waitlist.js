@@ -50,7 +50,7 @@ export async function listWaitlist(database, { userId, activeOnly = false } = {}
         w.book_id,
         w.media_id,
         CONVERT(char(10), w.request_time, 23) AS request_date,
-        'waiting' AS status,
+        w.satus AS status,
         CAST(NULL AS date) AS ready_date,
         CAST(NULL AS date) AS expiration_date,
         ROW_NUMBER() OVER (
@@ -69,7 +69,7 @@ export async function listWaitlist(database, { userId, activeOnly = false } = {}
       LEFT JOIN media AS m ON w.media_id = m.media_id
       WHERE
         (@userId IS NULL OR w.user_id = @userId)
-        AND (@activeOnly = 0)
+        AND (@activeOnly = 0 OR w.status = 'waiting')
       ORDER BY
         w.request_time, w.waitlist_id
     `);
