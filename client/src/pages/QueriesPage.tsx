@@ -10,7 +10,7 @@ export default function QueriesPage() {
   const [result, setResult] = useState<TableResult | null>(null);
   const [error, setError] = useState('');
   const [showSql, setShowSql] = useState(true);
-  const members = useLoad(api.listServerMembers);
+  const members = useLoad(api.listMembers);
   const books = useLoad(api.listBooks);
   const media = useLoad(api.listMedia);
 
