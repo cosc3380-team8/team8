@@ -65,35 +65,27 @@ export const listBooks = async (): Promise<BookView[]> => {
   }
 
   return response.json() as Promise<BookView[]>;
-};
+}
 
-export const listServerMembers = async (): Promise<Member[]> => {
-  const response = await fetch('https://umas-library-server.vercel.app/members');
-  if (!response.ok) {
-    throw new Error('Failed to fetch members');
-  }
-
-  return response.json() as Promise<Member[]>;
-};
-
-export const listServerAuthors = async (): Promise<Author[]> => {
-  const response = await fetch('https://umas-library-server.vercel.app/report-authors');
-  if (!response.ok) {
-    throw new Error('Failed to fetch authors');
-  }
-
-  return response.json() as Promise<Author[]>;
-};
-
+// List all media
 export const listMedia = async (): Promise<MediaView[]> => {
   const response = await fetch('https://umas-library-server.vercel.app/media');
   if (!response.ok) {
-    throw new Error('Failed to fetch authors');
+    throw new Error('Failed to fetch media');
   }
   return response.json() as Promise<MediaView[]>;
-};
+}
 
-export const listAuthors = (): Promise<Author[]> => run((s) => s.authors);
+// List all authors
+export const listAuthors = async (): Promise<Author[]> => {
+  // run((s) => s.authors);
+  const response = await fetch('https://umas-library-server.vercel.app/authors');
+  if (!response.ok) {
+    throw new Error('Failed to fetch authors');
+  }
+  return response.json() as Promise<Author[]>;
+}
+
 export const listRooms = (): Promise<Room[]> => run((s) => s.rooms);
 export const listMembers = (): Promise<Member[]> => run((s) => s.members);
 export const listStaff = (): Promise<Staff[]> => run((s) => s.staff);
