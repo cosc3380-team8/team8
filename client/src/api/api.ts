@@ -86,9 +86,36 @@ export const listAuthors = async (): Promise<Author[]> => {
   return response.json() as Promise<Author[]>;
 }
 
-export const listRooms = (): Promise<Room[]> => run((s) => s.rooms);
-export const listMembers = (): Promise<Member[]> => run((s) => s.members);
-export const listStaff = (): Promise<Staff[]> => run((s) => s.staff);
+// List all rooms
+export const listRooms = async (): Promise<Room[]> => {
+  // run((s) => s.rooms);
+  const response = await fetch('https://umas-library-server.vercel.app/rooms');
+  if (!response.ok) {
+    throw new Error('Failed to fetch rooms');
+  }
+  return response.json() as Promise<Room[]>;
+}
+
+// List all members
+export const listMembers = (): Promise<Member[]> => {
+  // run((s) => s.members);
+  const response = await fetch('https://umas-library-server.vercel.app/members');
+  if (!response.ok) {
+    throw new Error('Failed to fetch members');
+  }
+  return response.json() as Promise<Member[]>;
+}
+
+// List all staff
+export const listStaff = (): Promise<Staff[]> => {
+  // run((s) => s.staff);
+  const response = await fetch('https://umas-library-server.vercel.app/staff');
+  if (!response.ok) {
+    throw new Error('Failed to fetch authors');
+  }
+  return response.json() as Promise<Staff[]>;
+}
+
 export const listAudit = (): Promise<AuditEntry[]> =>
   run((s) => [...s.audit].sort((x, y) => y.logged_at.localeCompare(x.logged_at) || y.log_id - x.log_id).slice(0, 300));
 
