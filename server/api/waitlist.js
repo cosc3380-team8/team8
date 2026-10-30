@@ -6,36 +6,36 @@ function badRequest(message) {
   return e;
 }
 
-export async function placeHold(database, {userID, kind, itemID}){
-  userID = Number(userID);
-  itemID = Number(itemID);
-  if(!userID || !itemID || (kind !=='book' && kind!=='media)){
+export async function placeHold(database, { userId, kind, itemId }) {
+  userId = Number(userId);
+  itemId = Number(itemId);
+  if (!userId || !itemId || (kind !== 'book' && kind !== 'media')) {
     throw badRequest('Missing user, item, or item type.');
   }
-  const col = kind == 'book' ? 'book_id' : 'media_id;
+  const col = kind === 'book' ? 'book_id' : 'media_id';
 
   const check = await database.request()
-  .input('userId', sql.Int, userId)
-  .input('itemId', sql.INT, itemId)
-  .query('
-    SELECT
-      (SELECT COUNT(*) FROM dbo.[user] WHERE user_id = @userId AND is_active = 1) AS member_ok,
-      (SELECT COUNT(*) FROM waitlist WHERE user_id = @userId AND status = 'waiting') AS active_holds,
-      (SELECT COUNT(*) FROM waitlist WHERE user_id = @userId AND status - 'waiting' and 4[col} = @itemId) AS dup
-    );
-  const {member_ok, active_holds, dup } = check_recordset[0];
-  if(!member_ok) throw badRequest('Member not found or account is inactive.');
-  if(dub) throw badRequest('You already have a hold on this item.');
-  if(active_holds >= 3) throw badRequest('You can have at most 3 active holds.');
+    .input('userId', sql.Int, userId)
+    .input('itemId', sql.Int, itemId)
+    .query(`
+      SELECT
+        (SELECT COUNT(*) FROM dbo.[user] WHERE user_id = @userId AND is_active = 1) AS member_ok,
+        (SELECT COUNT(*) FROM waitlist WHERE user_id = @userId AND status = 'waiting') AS active_holds,
+        (SELECT COUNT(*) FROM waitlist WHERE user_id = @userId AND status = 'waiting' AND ${col} = @itemId) AS dup
+    `);
+  const { member_ok, active_holds, dup } = check.recordset[0];
+  if (!member_ok) throw badRequest('Member not found or account is inactive.');
+  if (dup) throw badRequest('You already have a hold on this item.');
+  if (active_holds >= 3) throw badRequest('You can have at most 3 active holds.');
 
   const result = await database.request()
-  .input('userId', sql.Int, userId)
-  .input('itemId', sql.Int, itemId)
-    .query('
-      INSERT INTO waitlist(user_id, ${col]) VALES (@user_Id,@itemId);
-  SELECT CAST(SCOPE_IDENTITY() AS int) AS hold_id;
-);
-return {hold_id: result.recorddet[0].hold_if );
+    .input('userId', sql.Int, userId)
+    .input('itemId', sql.Int, itemId)
+    .query(`
+      INSERT INTO waitlist (user_id, ${col}) VALUES (@userId, @itemId);
+      SELECT CAST(SCOPE_IDENTITY() AS int) AS hold_id;
+    `);
+  return { hold_id: result.recordset[0].hold_id };
 }
 
 export async function listWaitlist(database, { userId, activeOnly = false } = {}) {
