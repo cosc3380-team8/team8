@@ -14,7 +14,7 @@ import { runQuery, runReport, listReportAuthors } from './api/reports.js';
 import { login, signup } from './api/auth.js';
 
 const port = Number(process.env.PORT) || 3000;
-const allowedOrigins = new Set(['http://localhost','https://umas-library.vercel.app']);
+const allowedOrigins = new Set(['http://localhost', 'http://localhost:5173', 'https://umas-library.vercel.app']);
 
 // Read a JSON request body (Vercel may have parsed it already)
 async function readJson(req) {
@@ -227,6 +227,7 @@ const server = http.createServer(async (req, res) => {
                     : 'An error occurred while fetching staff.'
             }));
         }
+        return;
     }
     
     else if (req.method === 'GET' && url.pathname === '/report-authors') {
@@ -302,9 +303,9 @@ const server = http.createServer(async (req, res) => {
             const userId = url.searchParams.get('user_id');
             const activeOnly = url.searchParams.get('active_only') === 'true';
             const waitlist = await listWaitlist(database, { userId, activeOnly });
-            const holds = await listWaitlist(database);
+          //  const holds = await listWaitlist(database);
             res.writeHead(200, { 'Content-Type': 'application/json'});
-            res.end(JSON.stringify(holds));
+            res.end(JSON.stringify(waitlist));
         }catch(error){
             const status = error.statusCode || 500;
             console.error('Error listing waitlist:', error);
