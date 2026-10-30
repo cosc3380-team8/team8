@@ -20,6 +20,8 @@ async function run<T>(fn: (s: DBState) => T): Promise<T> {
   }
 }
 
+const API = 'https://umas-library-server.vercel.app';
+
 const fullName = (p: { first_name: string; last_name: string }) => `${p.first_name} ${p.last_name}`;
 const need = (v: unknown, label: string) => {
   if (v === undefined || v === null || String(v).trim() === '') throw new Error(`${label} is required.`);
@@ -145,7 +147,15 @@ export const listLoans = (opts: { userId?: number; activeOnly?: boolean } = {}):
       .sort((a, b) => b.loan_id - a.loan_id),
   );
 
-export const listHolds = (opts: { userId?: number; activeOnly?: boolean } = {}): Promise<HoldView[]> =>
+export const listHolds = async (opts: { userId?: number; activeOnly?: boolean } = {}): Promise<HoldView[]> => {
+  const q = new URLSearchParams();
+  if (opts.userId !== undefined) q.set('user_id', String(opts.userId));
+  if (opts.activeOnly) q.set('active_only', 'true');
+  const res = await fetch(`${API}/holds?${q}`);
+  if (!res.ok) throw new Error('Failed to fetch holds');
+  return res.json();
+};
+/* export const listHolds = (opts: { userId?: number; activeOnly?: boolean } = {}): Promise<HoldView[]> =>
   run((s) => {
     const active = (h: { status: string }) => h.status === 'waiting' || h.status === 'ready';
     return s.holds
@@ -163,8 +173,7 @@ export const listHolds = (opts: { userId?: number; activeOnly?: boolean } = {}):
         return { ...h, member_name: fullName(m), title: rules.itemTitle(s, kind, itemId), kind, queue_position: pos };
       })
       .sort((a, b) => b.hold_id - a.hold_id);
-  });
-
+  }); */
 export const listFines = (userId?: number): Promise<FineView[]> =>
   run((s) =>
     s.fines
@@ -434,8 +443,18 @@ export const deleteStaff = (id: number): Promise<void> =>
 export const doCheckout = (userId: number, kind: ItemKind, itemId: number) =>
   run((s) => rules.checkout(s, userId, kind, itemId));
 export const doReturn = (loanId: number) => run((s) => rules.returnLoan(s, loanId));
-export const doPlaceHold = (userId: number, kind: ItemKind, itemId: number) =>
-  run((s) => rules.placeHold(s, userId, kind, itemId));
+
+export const doPlaceHold = async (userId: number, kind: ItemKind, itemId: number) => {
+  const res = await fetch(`${API}/holds`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, kind, itemId }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Could not place hold');
+  return data;
+};
+
 export const doCancelHold = (holdId: number) => run((s) => rules.cancelHold(s, holdId));
 export const doPayFine = (fineId: number, method: string, staffId: number) =>
   run((s) => receiptView(s, rules.payFine(s, fineId, method, staffId).receipt_id));
