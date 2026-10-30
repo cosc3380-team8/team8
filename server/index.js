@@ -2,6 +2,7 @@ import http from 'http';
 import sql from 'mssql';
 import { getSqlConfig } from './config.js';
 import { listBooks, addBook, deleteBook } from './api/books.js';
+import { listAuthors } from './api/author.js';
 import { listLoans } from './api/loans.js';
 import { listMedia, addMedia, deleteMedia} from './api/media.js';
 import { listRooms } from './api/rooms.js';
@@ -72,6 +73,32 @@ const server = http.createServer(async (req, res) => {
         return;
     }
     else if (req.method === 'DELETE' && url.pathname.startsWith('/books')) {
+        return;
+    }
+
+    // Route handlers for authors
+    if (req.method === 'GET' && url.pathname === '/authors') {
+        try {
+            const database = await sql.connect(await getSqlConfig());
+            const books = await listAuthors(database, url.searchParams.get('search') || '');
+            res.writeHead(200, { 'Content-Type': 'application/json'});
+            res.end(JSON.stringify(books));
+        } catch (error) {
+            const status = error.statusCode || 500;
+            console.error('Error fetching authors:', error);
+            res.writeHead(status, { 'Content-Type': 'application/json'});
+            res.end(JSON.stringify({ 
+                error: status === 400
+                    ? error.message
+                    : 'An error occurred while fetching books.'
+             }));
+        }
+        return;
+    }
+    else if (req.method === 'POST' && url.pathname === '/authors') {
+        return;
+    }
+    else if (req.method === 'DELETE' && url.pathname.startsWith('/authors')) {
         return;
     }
 
