@@ -97,7 +97,7 @@ export const listRooms = async (): Promise<Room[]> => {
 }
 
 // List all members
-export const listMembers = (): Promise<Member[]> => {
+export const listMembers = async (): Promise<Member[]> => {
   // run((s) => s.members);
   const response = await fetch('https://umas-library-server.vercel.app/members');
   if (!response.ok) {
@@ -107,7 +107,7 @@ export const listMembers = (): Promise<Member[]> => {
 }
 
 // List all staff
-export const listStaff = (): Promise<Staff[]> => {
+export const listStaff = async (): Promise<Staff[]> => {
   // run((s) => s.staff);
   const response = await fetch('https://umas-library-server.vercel.app/staff');
   if (!response.ok) {
