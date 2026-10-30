@@ -22,7 +22,13 @@ export async function listMedia(database, search = '') {
                     FROM copies AS c
                     WHERE c.media_id = m.media_id
                 ) AS total_copies,
-                m.is_active
+                (
+                    SELECT COUNT(*)
+                    FROM copies AS c
+                    WHERE c.media_id = b.media_id
+                        AND c.is_active = 1
+                        AND c.is_available = 1
+                ) AS available_copies
             FROM
                 media m
             WHERE
