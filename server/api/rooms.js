@@ -16,7 +16,8 @@ export async function listRooms(database, search = '') {
                 r.room_id,
                 r.room_number,
                 r.capacity,
-                r.is_active
+                r.is_active,
+                r.room_level
             FROM room AS r
             WHERE r.room_number LIKE N'%' + @search + N'%' AND r.is_active = 1
             ORDER BY r.room_number
