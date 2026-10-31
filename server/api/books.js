@@ -83,7 +83,7 @@ export async function addBook(database, book) {
             .input('title', sql.NVarChar(150), title.trim())
             .input('publisher', sql.NVarChar(100), publisher)
             .input('isbn', sql.NVarChar(13), isbn || NULL)
-            .input('publish_year', sql.Int, NULL)
+            .input('publish_year', sql.Int, 2026)
             .input('is_active', sql.Bit, is_active)
             .query(`
                 INSERT INTO book (book_id, title, publisher, isbn, publish_year, is_active)
