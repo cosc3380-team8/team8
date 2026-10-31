@@ -64,20 +64,29 @@ export async function addBook(database, book) {
         await transaction.begin();
 
         // Verify author(s) exist
-        const authorCheck = await new sql.Request(transaction)
-            .input('authorIds', sql.VarChar, authorIds.join(','))
-            .query(`
-                SELECT COUNT(*) AS authorCount
-                FROM author
-                WHERE author_id IN (
-                    SELECT TRY_CAST(value AS INT)
-                    FROM STRING_SPLIT(@authorIds, ',')
-                )
-            `);
+        const request = new sql.Request(transaction)
+        const placeholders = authorIds.map((id, i) => {
+            request.input(`author${i}`, sql.Int, id);
+            return `@author${i}`;
+        });
 
-            if (authorCheck.recordset[0].authorCount !== authorIds.length) {
-                throw Object.assign(new Error('Choose valid authors.'), { statusCode: 400});
-            }
+        const authorCheck = await request.query(`
+            SELECT author_id
+            FROM author
+            WHERE authord_id IN (${placeholders.join(', ')})
+        `);
+
+        count foundIds = new Set(
+            authorCheck.recordset.map(row => Number(row.author_id))
+        );
+        const missingIds = authorIds.filter(id => !foundIds.has(Number(id)));
+
+        if (missingIds.length) {
+            throw Object.assign(
+                new Error(`Author(s) ID not found: ${missingIds.join(', ')}`),
+                { statusCode: 400 }
+            );
+        }
             
         const result = await new sql.Request(transaction)
             .input('title', sql.NVarChar(150), title.trim())
