@@ -63,6 +63,7 @@ export async function addBook(database, book) {
     try {
         await transaction.begin();
 
+        console.log('Author IDs to validate:', authorIds);
         // Verify author(s) exist
         const request = new sql.Request(transaction)
         const placeholders = authorIds.map((id, i) => {
