@@ -108,6 +108,7 @@ export async function addBook(database, book) {
         for (let i = 0; i < addCopies; i++) {
             await new sql.Request(transaction)
                 .input('book_id', sql.Int, bookId)
+                .input('is_active', sql.Bit, is_active)
                 .query(`
                     INSERT INTO copies (book_id, is_available, is_active)
                     VALUES (@book_id, 'true', @is_active)
