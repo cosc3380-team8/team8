@@ -58,7 +58,7 @@ export async function addBook(database, book) {
     } = book;
 
     const authorIds = [...new Set(author_ids.map(Number))];
-    const transaction = new database.transaction();
+    const transaction = new sql.Transaction(database);
 
     try {
         await transaction.begin();
