@@ -306,7 +306,41 @@ export const deleteAuthor = (id: number): Promise<void> =>
     s.authors = s.authors.filter((a) => a.author_id !== id);
   });
 
-export const saveBook = (b: Partial<Book> & { author_ids?: number[] }, addCopies = 0): Promise<void> =>
+export const saveBook = async (b: Partial<Book> & { author_ids?: number[] }, addCopies = 0): Promise<void> => {
+  if (!b.title?.trim()) throw new Error('Title is required.');
+
+  const isbn = digitsOnly(b.isbn ?? '');
+  if (isbn && isbn.length !== 10 && isbn.length !== 13) {
+    throw new Error('ISBN must have 10 or 13 digits.');
+  }
+  
+  const author_ids = [...new Set((b.author_ids ?? []).map(Number))];
+  if (author_ids.length === 0) throw new Error('Choose at least one author.');
+
+  const updating = b.book_id != null;
+  const url = updating 
+    ? `https://umas-library-server.vercel.app/books/${b.book_id}` 
+    : 'https://umas-library-server.vercel.app/books';
+
+  const response = await fetch(url, {
+    method: updating ? 'PUT' : 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: b.title.trim(),
+      isbn,
+      publisher: b.publisher ?? '',
+      is_active: b.is_active,
+      author_ids,
+      addCopies: updating ? Math.max(0, addCopies) : Math.max(1, addCopies)
+    })
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error ?? `Could not save book (${response.status}).`);
+  }
+}
+  /*
   run((s) => {
     need(b.title, 'Title');
     const isbn = digitsOnly(b.isbn ?? '');
@@ -334,6 +368,7 @@ export const saveBook = (b: Partial<Book> & { author_ids?: number[] }, addCopies
     authorIds.forEach((author_id, i) => s.bookAuthors.push({ book_id: id!, author_id, author_order: i + 1 }));
     for (let i = 0; i < addCopies; i++) s.bookCopies.push({ copy_id: nextId(s, 'bookCopies'), book_id: id, status: 'available' });
   });
+  */
 
 export const deleteBook = (id: number): Promise<void> =>
   run((s) => {

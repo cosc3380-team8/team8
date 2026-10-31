@@ -12,6 +12,7 @@ import { listFines } from './api/fines.js';
 import { listWaitlist, placeHold } from './api/waitlist.js';
 import { runQuery, runReport, listReportAuthors } from './api/reports.js';
 import { login, signup } from './api/auth.js';
+import { error } from 'console';
 
 const port = Number(process.env.PORT) || 3000;
 const allowedOrigins = new Set(['http://localhost', 'http://localhost:5173', 'https://umas-library.vercel.app']);
@@ -70,6 +71,24 @@ const server = http.createServer(async (req, res) => {
         return;
     }
     else if (req.method === 'POST' && url.pathname === '/books') {
+        try {
+            const body = await readJson(req);
+            const database = await sql.connect(await getSqlConfig());
+            
+            const book = await addBook(database, body);
+
+            res.writeHead(201, { 'content-type': 'application/json' });
+            res.end(JSON.stringify(book));
+        } catch (error) {
+            console.error('Error saving book:', error);
+
+            const status = error.statusCode || 500;
+            res.writeHead(status, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({
+                error: status < 500 ? error.message : 'An error occurred while saving this book.'
+            }));
+        }
+
         return;
     }
     else if (req.method === 'DELETE' && url.pathname.startsWith('/books')) {
@@ -98,6 +117,7 @@ const server = http.createServer(async (req, res) => {
     else if (req.method === 'POST' && url.pathname === '/authors') {
         return;
     }
+    
     else if (req.method === 'DELETE' && url.pathname.startsWith('/authors')) {
         return;
     }

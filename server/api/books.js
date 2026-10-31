@@ -48,22 +48,87 @@ export async function listBooks(database, search = '') {
 }
 
 export async function addBook(database, book) {
-    const { book_id, title, publisher = null, isbn, is_active } = book;
+    const { 
+        title, 
+        publisher, 
+        isbn, 
+        is_active = true, 
+        author_ids = [], 
+        addCopies = 1 
+    } = book;
+
+    const authorIds = [...new Set(author_ids.map(Number))];
+    const transaction = new database.transaction();
+
     try {
-        const result = await database.poolconnection
-            .request()
-            .input('book_id', sql.Int, book_id)
-            .input('title', sql.NVarChar(150), title)
+        await transaction.begin();
+
+        // Verify author(s) exist
+        const authorCheck = await new database.Request(transaction)
+            .input('authorIds', database.VarChar, authorIds.join(','))
+            .query(`
+                SELECT COUNT(*) AS authorCount
+                FROM author
+                WHERE author_id IN (
+                    SELECT TRY_CAST(value AS INT)
+                    FROM STRING_SPLIT(@authorIds, ',')
+                )
+            `);
+
+            if (authorCheck.recordset[0].authorCount !== authorIds.length) {
+                throw Object.assign(new Error('Choose valid authors.'), { statusCode: 400});
+            }
+            
+        const result = await new sql.Request(transaction)
+            .input('title', sql.NVarChar(150), title.trim())
             .input('publisher', sql.NVarChar(100), publisher)
-            .input('isbn', sql.NVarChar(13), isbn)
+            .input('isbn', sql.NVarChar(13), isbn || NULL)
+            .input('publish_year', sql.Int, NULL)
             .input('is_active', sql.Bit, is_active)
             .query(`
-                INSERT INTO book (book_id, title, publisher, isbn, is_active)
-                VALUES (@book_id, @title, @publisher, @isbn, @is_active)
+                INSERT INTO book (book_id, title, publisher, isbn, publish_year, is_active)
+                VALUES (@book_id, @title, @publisher, @isbn, @publish_year, @is_active)
             `);
-        return result;
+
+        const bookId = result.recordset[0].book_id;
+
+        // Link the book to its author(s)
+        for (const [authorId] of authorIds.entries()) {
+            await new sql.Request(transaction)
+                .input('book_id', sql.Int, bookId)
+                .input('author_id', sql.Int, authorId)
+                .query(`
+                    INSERT INTO book_author (book_id, author_id)
+                    VALUES (@book_id, @author_id)
+                `);
+        }
+
+        // Add number of copies
+        for (let i = 0; i < addCopies; i++) {
+            await new sql.Request(transaction)
+                .input('book_id', sql.Int, bookId)
+                .query(`
+                    INSERT INTO copies (book_id, is_available, is_active)
+                    VALUES (@book_id, 'true', 'true')
+                `);
+        }
+        
+        await transaction.commit();
+        return { book_id: bookId };
     } catch (error) {
+        try {
+            await transaction.rollback();
+        } catch {}
+        
         console.error('Error adding book:', error);
+
+        if (error.number === 2601 || error.number === 2627) {
+            throw Object.assign(
+                new Error('Another book already has that ISBN.'),
+                { statusCode: 409 }
+            );
+        }
+
         throw error;
     }
 }
