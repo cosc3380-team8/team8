@@ -93,6 +93,18 @@ export async function addBook(database, book) {
 
         const bookId = result.recordset[0].book_id;
 
+        const foundIds = new Set(
+            authorCheck.recordset.map(row => Number(row.author_id))
+        );
+        const missingIds = authorIds.filter(id => !foundIds.has(id));
+
+        if (missingIds.length > 0) {
+            throw Object.assign(
+                new Error(`Author ID(s) not found: ${missingIds.join(', ')}`),
+                { statusCode: 400 }
+            );
+        }
+        
         // Link the book to its author(s)
         for (const [authorId] of authorIds.entries()) {
             await new sql.Request(transaction)
