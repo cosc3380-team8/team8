@@ -87,6 +87,7 @@ export async function addBook(database, book) {
             .input('is_active', sql.Bit, is_active)
             .query(`
                 INSERT INTO book (title, publisher, isbn, publish_year, is_active)
+                OUTPUT INSERTED.book_id AS book_id
                 VALUES (@title, @publisher, @isbn, @publish_year, @is_active)
             `);
 
