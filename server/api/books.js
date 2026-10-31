@@ -73,7 +73,7 @@ export async function addBook(database, book) {
         const authorCheck = await request.query(`
             SELECT author_id
             FROM author
-            WHERE authord_id IN (${placeholders.join(', ')})
+            WHERE author_id IN (${placeholders.join(', ')})
         `);
 
         const foundIds = new Set(
