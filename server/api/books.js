@@ -63,32 +63,22 @@ export async function addBook(database, book) {
     try {
         await transaction.begin();
 
-        console.log('Author IDs to validate:', authorIds);
-        // Verify author(s) exist
-        const request = new sql.Request(transaction)
-        const placeholders = authorIds.map((id, i) => {
-            request.input(`author${i}`, sql.Int, id);
-            return `@author${i}`;
-        });
-
-        const authorCheck = await request.query(`
-            SELECT author_id
-            FROM author
-            WHERE author_id IN (${placeholders.join(', ')})
-        `);
-
-        const foundIds = new Set(
-            authorCheck.recordset.map(row => Number(row.author_id))
-        );
-        const missingIds = authorIds.filter(id => !foundIds.has(Number(id)));
-
-        if (missingIds.length) {
-            throw Object.assign(
-                new Error(`Author(s) ID not found: ${missingIds.join(', ')}`),
-                { statusCode: 400 }
-            );
+        // Verify author(s) exist in the author table
+        const authorCheck = await new sql.Request(transaction)
+            .input('authorIds', sql.VarChar, authorIds.join(','))
+            .query(`
+                SELECT COUNT(*) AS authorCount
+                FROM author
+                WHERE author_id IN (
+                    SELECT TRY_CAST(value AS INT)
+                    FROM STRING_SPLIT(@authorIds, ',')
+                )
+            `);
+        if (authorCheck.recordset[0].authorCount !== authorIds.length) {
+            throw Object.assign(new Error('Choose valid authors.'), { statusCode: 400 });
         }
-            
+
+        // Add the book in the book table
         const result = await new sql.Request(transaction)
             .input('title', sql.NVarChar(150), title.trim())
             .input('publisher', sql.NVarChar(100), publisher)
@@ -102,21 +92,9 @@ export async function addBook(database, book) {
             `);
 
         const bookId = result.recordset[0].book_id;
-
-        const check = await database.request()
-            .input('authorId', sql.Int, 6)
-            .query(`
-                SELECT DB_NAME() AS database_name,
-                   @@SERVERNAME AS server_name,
-                   author_id
-                FROM dbo.author
-                WHERE author_id = @authorId
-            `);
-
-        console.log(check.recordset);
         
-        // Link the book to its author(s)
-        for (const [authorId] of authorIds.entries()) {
+        // Link the book to its author(s) in book_author
+        for (const authorId of authorIds) {
             await new sql.Request(transaction)
                 .input('book_id', sql.Int, bookId)
                 .input('author_id', sql.Int, authorId)
@@ -126,7 +104,7 @@ export async function addBook(database, book) {
                 `);
         }
 
-        // Add number of copies
+        // Add number of copies in the copies table
         for (let i = 0; i < addCopies; i++) {
             await new sql.Request(transaction)
                 .input('book_id', sql.Int, bookId)
