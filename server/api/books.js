@@ -64,7 +64,7 @@ export async function addBook(database, book) {
         await transaction.begin();
 
         // Verify author(s) exist
-        const authorCheck = await new database.Request(transaction)
+        const authorCheck = await new sql.Request(transaction)
             .input('authorIds', database.VarChar, authorIds.join(','))
             .query(`
                 SELECT COUNT(*) AS authorCount
