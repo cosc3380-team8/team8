@@ -54,7 +54,7 @@ export async function addBook(database, book) {
         isbn, 
         is_active, 
         author_ids = [], 
-        addCopies = 1 
+        addCopies
     } = book;
 
     const authorIds = [...new Set(author_ids.map(Number))];
@@ -110,7 +110,7 @@ export async function addBook(database, book) {
                 .input('book_id', sql.Int, bookId)
                 .query(`
                     INSERT INTO copies (book_id, is_available, is_active)
-                    VALUES (@book_id, 'true', 'true')
+                    VALUES (@book_id, 'true', @is_active)
                 `);
         }
         
