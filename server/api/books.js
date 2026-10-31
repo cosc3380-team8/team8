@@ -86,8 +86,8 @@ export async function addBook(database, book) {
             .input('publish_year', sql.Int, 2026)
             .input('is_active', sql.Bit, is_active)
             .query(`
-                INSERT INTO book (book_id, title, publisher, isbn, publish_year, is_active)
-                VALUES (@book_id, @title, @publisher, @isbn, @publish_year, @is_active)
+                INSERT INTO book (title, publisher, isbn, publish_year, is_active)
+                VALUES (@title, @publisher, @isbn, @publish_year, @is_active)
             `);
 
         const bookId = result.recordset[0].book_id;
