@@ -76,7 +76,7 @@ export async function addBook(database, book) {
             WHERE authord_id IN (${placeholders.join(', ')})
         `);
 
-        count foundIds = new Set(
+        const foundIds = new Set(
             authorCheck.recordset.map(row => Number(row.author_id))
         );
         const missingIds = authorIds.filter(id => !foundIds.has(Number(id)));
