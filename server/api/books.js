@@ -52,7 +52,7 @@ export async function addBook(database, book) {
         title, 
         publisher, 
         isbn, 
-        is_active = true, 
+        is_active, 
         author_ids = [], 
         addCopies = 1 
     } = book;
