@@ -28,7 +28,24 @@ export async function listAuthors(database, search = '') {
 
 export async function saveAuthor(database, author) {
     const { first_name, last_name } = author;
+
     try {
+        // Check if the author already exists
+        const existingAuthor = await database
+            .request()
+            .input('first_name', sql.NVarChar(50), first_name)
+            .input('last_name', sql.NVarChar(50), last_name)
+            .query(`
+                SELECT COUNT(*) AS count
+                FROM author
+                WHERE first_name = @first_name AND last_name = @last_name
+            `);
+        if (existingAuthor.recordset[0].count > 0) {
+            const error = new Error('Author already exists');
+            error.statusCode = 400;
+            throw error;
+        }
+
         const result = await database
             .request()
             .input('first_name', sql.NVarChar(50), first_name)
@@ -45,32 +62,65 @@ export async function saveAuthor(database, author) {
     }
 }
 
+export async function updateAuthor(database, author_id, author) {
+    const { first_name, last_name } = author;
+
+    try {
+        const result = await database
+            .request()
+            .input('author_id', sql.Int, author_id)
+            .input('first_name', sql.NVarChar(50), first_name)
+            .input('last_name', sql.NVarChar(50), last_name)
+            .query(`
+                UPDATE author
+                SET first_name = @first_name, last_name = @last_name
+                WHERE author_id = @author_id
+            `);
+
+        if (result.rowsAffected[0] === 0) {
+            const error = new Error('Author not found');
+            error.statusCode = 404;
+            throw error;
+        }
+    } catch (error) {
+        console.error('Error updating author:', error);
+        throw error;
+    }
+}
+
 export async function deleteAuthor(database, author_id) {
-    try{
-        const result = await database.poolconnection
+    try {
+        // Check if the author is associated with any books
+        const result = await database
             .request()
             .input('author_id', sql.Int, author_id)
             .query(`
-                SELECT COUNT(*) AS count FROM authors AS a
-                JOIN book_author AS ba ON a.author_id = ba.author_id
-                WHERE a.author_id = ba.author_id
+                SELECT COUNT(*) AS count
+                FROM book_author
+                WHERE author_id = @author_id
             `);
+        
         const count = result.recordset[0].count;
         if (count > 0) {
             const error = new Error('Author is associated with books and cannot be deleted');
-            error.statusCode = 400;
+            error.statusCode = 409;
             throw error;
-        }else{
-            const deleteResult = await database.poolconnection
+        } else {
+            const deleteResult = await database
                 .request()
                 .input('author_id', sql.Int, author_id)
                 .query(`
-                    DELETE FROM authors
+                    DELETE FROM author
                     WHERE author_id = @author_id
                 `);
-            return deleteResult;
+
+            if (deleteResult.rowsAffected[0] === 0) {
+                const error = new Error('Author not found');
+                error.statusCode = 404;
+                throw error;
+            }
         }
-    }catch(error){
+    } catch (error) {
         console.error(error);
         throw error;
     }

@@ -188,9 +188,61 @@ const server = http.createServer(async (req, res) => {
 
         return;
     }
-    
-    else if (req.method === 'DELETE' && url.pathname.startsWith('/authors')) {
+    else if (req.method === 'PUT' && url.pathname.startsWith('/authors/')) {
+        const match = url.pathname.match(/^\/authors\/(\d+)$/);
+
+        if (!match) {
+            res.writeHead(404, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Author not found.' }));
+            return;
+        }
+
+
+        try {
+            const body = await readJson(req);
+            const author_id = Number(match[1]);
+            const database = await sql.connect(await getSqlConfig());
+
+            await updateAuthor(database, author_id, body);
+
+            res.writeHead(204);
+            res.end();
+        } catch (error) {
+            console.error('Error updating author:', error);
+            const status = error.statusCode || 500;
+            res.writeHead(status, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({
+                error: status < 500 ? error.message : 'An error occurred while updating this author.'
+            }));
+        }
+
         return;
+    }
+    else if (req.method === 'DELETE' && url.pathname.startsWith('/authors/')) {
+        const match = url.pathname.match(/^\/authors\/(\d+)$/);
+        
+        if (!match) {
+            res.writeHead(404, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Author not found.' }));
+            return;
+        }
+
+        const author_id = Number(match[1]);
+
+        try {
+            const database = await sql.connect(await getSqlConfig());
+            await deleteAuthor(database, author_id);
+
+            res.writeHead(204);
+            res.end();
+        } catch (error) {
+            console.error('Error deleting author:', error);
+            const status = error.statusCode || 500;
+            res.writeHead(status, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({
+                error: status < 500 ? error.message : 'An error occurred while deleting this author.'
+            }));
+        }
     }
 
     // Route handlers for media

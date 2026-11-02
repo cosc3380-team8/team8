@@ -324,11 +324,23 @@ export const saveAuthor = async (a: Partial<Author>): Promise<void> => {
   });
   */
 
-export const deleteAuthor = (id: number): Promise<void> =>
+export const deleteAuthor = async (id: number): Promise<void> => {
+  const url = `https://umas-library-server.vercel.app/authors/${id}`;
+
+  const response = await fetch(url, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Could not delete author (${response.status}).`);
+  }
+}
+/*
   run((s) => {
     if (s.bookAuthors.some((ba) => ba.author_id === id)) throw new Error('This author is linked to one or more books. Remove them from those books first.');
     s.authors = s.authors.filter((a) => a.author_id !== id);
   });
+*/
 
 export const saveBook = async (b: Partial<Book> & { author_ids?: number[] }, addCopies = 0): Promise<void> => {
   if (!b.title?.trim()) throw new Error('Title is required.');
