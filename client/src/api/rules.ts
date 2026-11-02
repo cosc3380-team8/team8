@@ -233,7 +233,7 @@ export function payFine(s: DBState, fineId: number, method: string, staffId: num
   const fine = s.fines.find((f) => f.fine_id === fineId);
   if (!fine) throw new Error('Fine not found.');
   if (fine.paid_status === 'paid') throw new Error('This fine is already paid.');
-  if (!(IN_PERSON_METHODS as readonly string[]).includes(method)) throw new Error('Choose Cash, Card or Check.');
+  if (!(IN_PERSON_METHODS as readonly string[]).includes(method)) throw new Error('Choose Cash or Card.');
   const loan = s.loans.find((l) => l.loan_id === fine.loan_id)!;
 
   const payment = {
