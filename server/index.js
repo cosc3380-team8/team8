@@ -2,7 +2,7 @@ import http from 'http';
 import sql from 'mssql';
 import { getSqlConfig } from './config.js';
 import { listBooks, addBook, deleteBook, updateBook } from './api/books.js';
-import { listAuthors, saveAuthor, deleteAuthor } from './api/author.js';
+import { listAuthors, saveAuthor, deleteAuthor, updateAuthor } from './api/author.js';
 import { listLoans } from './api/loans.js';
 import { listMedia, addMedia, deleteMedia} from './api/media.js';
 import { listRooms } from './api/rooms.js';
