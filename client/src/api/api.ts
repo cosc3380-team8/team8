@@ -370,12 +370,24 @@ export const saveBook = async (b: Partial<Book> & { author_ids?: number[] }, add
   });
   */
 
-export const deleteBook = (id: number): Promise<void> =>
+export const deleteBook = async (id: number): Promise<void> => {
+  const url =`https://umas-library.vercel.app/books/${id}`;
+
+  const response = await fetch(url, {
+    method: 'PATCH',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Could not delete book (${response.status}).`);
+  }
+}
+  /*
   run((s) => {
     if (s.bookCopies.some((c) => c.book_id === id && (c.status === 'loaned' || c.status === 'held')))
       throw new Error('Cannot archive: copies are on loan or held.');
     s.books.find((b) => b.book_id === id)!.is_active = false;
   });
+  */
 
 export const saveMedia = (m: Partial<Media>, addCopies = 0): Promise<void> =>
   run((s) => {

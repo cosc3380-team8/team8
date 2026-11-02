@@ -235,7 +235,7 @@ export async function updateBook(database, book) {
 
 export async function deleteBook(database, bookId) {
     try {
-        const result = await database.poolconnection
+        const result = await database
         .request()
         .input('book_id', sql.Int, bookId)
         .query(`
@@ -243,7 +243,12 @@ export async function deleteBook(database, bookId) {
             SET is_active = 0
             WHERE book_id = @book_id
         `);
-        return result;
+
+        if (result.rowsAffected[0] === 0) {
+            throw Object.assign(new Error("Book not found."), 
+            { statusCode: 404 }
+            );
+        }
     } catch (error) {
         console.error('Error deleting book:', error);
         throw error;

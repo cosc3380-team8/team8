@@ -120,6 +120,33 @@ const server = http.createServer(async (req, res) => {
 
         return;
     }
+    else if (req.method === 'PATCH' && url.pathname.startsWith('/books/')) {
+        const match = url.pathname.match(/^\/books\/(\d+)$/);
+
+        if (!match) {
+            res.writeHead(404, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Book not found.' }));
+            return;
+        }
+        try {
+            const database = await sql.connect(await getSqlConfig());
+            const book_id = Number(match[1]);
+
+            await deleteBook(database, book_id);
+
+            res.writeHead(204);
+            res.end();
+        } catch (error) {
+            console.error('Error deleting book', error);
+
+            const status = error.statusCode || 500;
+            res.writeHead(status, { 'content-type': 'application/json'});
+            res.end(JSON.stringify({
+                error: status < 500 ? error.message : 'An error occurred while deleting this book.'
+            }));
+        }  
+        return;
+    }
 
     // Route handlers for authors
     if (req.method === 'GET' && url.pathname === '/authors') {
