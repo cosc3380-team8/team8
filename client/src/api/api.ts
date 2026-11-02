@@ -8,6 +8,8 @@ import type {
   MediaView, Member, Notification, ReceiptView, ReservationView, Room, Session, Staff,
 } from '../types';
 
+const API = 'https://umas-library-server.vercel.app';
+
 async function run<T>(fn: (s: DBState) => T): Promise<T> {
   const s = loadState();
   try {
@@ -19,8 +21,6 @@ async function run<T>(fn: (s: DBState) => T): Promise<T> {
     throw e;
   }
 }
-
-const API = 'https://umas-library-server.vercel.app';
 
 const fullName = (p: { first_name: string; last_name: string }) => `${p.first_name} ${p.last_name}`;
 const need = (v: unknown, label: string) => {
@@ -118,34 +118,24 @@ export const listStaff = async (): Promise<Staff[]> => {
   return response.json() as Promise<Staff[]>;
 }
 
-export const listAudit = (): Promise<AuditEntry[]> =>
-  run((s) => [...s.audit].sort((x, y) => y.logged_at.localeCompare(x.logged_at) || y.log_id - x.log_id).slice(0, 300));
-
-export const listLoans = (opts: { userId?: number; activeOnly?: boolean } = {}): Promise<LoanView[]> =>
-  run((s) =>
-    s.loans
-      .filter((l) => (opts.userId === undefined || l.user_id === opts.userId) && (!opts.activeOnly || l.return_date === null))
-      .map((l): LoanView => {
-        const m = s.members.find((x) => x.user_id === l.user_id)!;
-        const info = rules.loanItem(s, l);
-        let status: LoanView['status'] = 'returned';
-        let days: number | null = null;
-        if (l.return_date === null) {
-          days = daysBetween(today(), l.due_date);
-          status = days < 0 ? 'overdue' : days <= rules.WARNING_DAYS ? 'due-soon' : 'active';
-        }
-        return {
-          ...l,
-          member_name: fullName(m),
-          title: info.title,
-          kind: info.kind,
-          status,
-          days_until_due: days,
-          fine_amount: s.fines.find((f) => f.loan_id === l.loan_id)?.amount ?? null,
-        };
-      })
-      .sort((a, b) => b.loan_id - a.loan_id),
-  );
+export const listAudit = async (): Promise<AuditEntry[]> => {
+   const response = await fetch(`${API}/audit`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch audit log');
+  }
+  return response.json() as Promise<AuditEntry[]>;
+}
+  
+export const listLoans = async (opts: { userId?: number; activeOnly?: boolean } = {}): Promise<LoanView[]> => {
+  const q = new URLSearchParams();
+  if (opts.userId !== undefined) q.set('user_id', String(opts.userId));
+  if (opts.activeOnly) q.set('active_only', 'true');
+  const response = await fetch(`${API}/loans?${q}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch loans');
+  }
+  return response.json() as Promise<LoanView[]>;
+}
 
 export const listHolds = async (opts: { userId?: number; activeOnly?: boolean } = {}): Promise<HoldView[]> => {
   const q = new URLSearchParams();
@@ -155,79 +145,54 @@ export const listHolds = async (opts: { userId?: number; activeOnly?: boolean } 
   if (!res.ok) throw new Error('Failed to fetch holds');
   return res.json();
 };
-/* export const listHolds = (opts: { userId?: number; activeOnly?: boolean } = {}): Promise<HoldView[]> =>
-  run((s) => {
-    const active = (h: { status: string }) => h.status === 'waiting' || h.status === 'ready';
-    return s.holds
-      .filter((h) => (opts.userId === undefined || h.user_id === opts.userId) && (!opts.activeOnly || active(h)))
-      .map((h): HoldView => {
-        const { kind, itemId } = rules.holdItem(h);
-        const m = s.members.find((x) => x.user_id === h.user_id)!;
-        let pos: number | null = null;
-        if (h.status === 'waiting') {
-          const queue = s.holds
-            .filter((x) => x.status === 'waiting' && (kind === 'book' ? x.book_id === itemId : x.media_id === itemId))
-            .sort((a, b) => a.request_date.localeCompare(b.request_date) || a.hold_id - b.hold_id);
-          pos = queue.findIndex((x) => x.hold_id === h.hold_id) + 1;
-        }
-        return { ...h, member_name: fullName(m), title: rules.itemTitle(s, kind, itemId), kind, queue_position: pos };
-      })
-      .sort((a, b) => b.hold_id - a.hold_id);
-  }); */
-export const listFines = (userId?: number): Promise<FineView[]> =>
-  run((s) =>
-    s.fines
-      .map((f): FineView => {
-        const loan = s.loans.find((l) => l.loan_id === f.loan_id)!;
-        const m = s.members.find((x) => x.user_id === loan.user_id)!;
-        const pay = s.payments.find((p) => p.fine_id === f.fine_id);
-        const rec = pay ? s.receipts.find((r) => r.payment_id === pay.payment_id) : undefined;
-        return {
-          ...f,
-          user_id: loan.user_id,
-          member_name: fullName(m),
-          title: rules.loanItem(s, loan).title,
-          due_date: loan.due_date,
-          return_date: loan.return_date,
-          payment_method: pay?.payment_method ?? null,
-          receipt_code: rec?.transaction_code ?? null,
-        };
-      })
-      .filter((f) => userId === undefined || f.user_id === userId)
-      .sort((a, b) => b.fine_id - a.fine_id),
-  );
 
-const nowLocal = () => {
-  const d = new Date();
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${today()}T${p(d.getHours())}:${p(d.getMinutes())}`;
-};
+export const listFines = async (userId?: number): Promise<FineView[]> => {
+  const q = new URLSearchParams();
+  if (userId !== undefined) q.set('user_id', String(userId));
+  const response = await fetch(`${API}/fines?${q}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch fines');
+  }
+  return response.json() as Promise<FineView[]>;
+}
 
 // archive reservations past end time
-export const listReservations = (userId?: number): Promise<ReservationView[]> =>
-  run((s) => {
-    const now = nowLocal();
-    return s.reservations
-      .filter((r) => userId === undefined || r.user_id === userId)
-      .map((r) => ({
-        ...r,
-        room_number: s.rooms.find((x) => x.room_id === r.room_id)?.room_number ?? '?',
-        member_name: fullName(s.members.find((x) => x.user_id === r.user_id)!),
-        archived: r.end_time <= now,
-      }))
-      .sort((a, b) => a.start_time.localeCompare(b.start_time));
+export const listReservations = async (userId?: number): Promise<ReservationView[]> => {
+  const q = new URLSearchParams();
+  if (userId !== undefined) q.set('user_id', String(userId));
+  const response = await fetch(`${API}/reservations?${q}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch reservations');
+  }
+  return response.json() as Promise<ReservationView[]>;
+}
+
+export const listNotifications = async (userId: number): Promise<Notification[]> => {
+  const response = await fetch(`${API}/notifications?user_id=${userId}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch notifications');
+  }
+  return response.json() as Promise<Notification[]>;
+}
+ 
+export const unreadNotificationCount = async (userId: number): Promise<number> => {
+  const response = await fetch(`${API}/notifications/unread?user_id=${userId}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch notification count');
+  }
+  return response.json() as Promise<number>;
+}
+
+export const markNotificationsRead = async (userId: number): Promise<void> => {
+  const response = await fetch(`${API}/notifications/read`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId }),
   });
-
-export const listNotifications = (userId: number): Promise<Notification[]> =>
-  run((s) => s.notifications
-    .filter((n) => n.user_id === userId)
-    .sort((x, y) => y.created_at.localeCompare(x.created_at) || y.notification_id - x.notification_id));
-
-export const unreadNotificationCount = (userId: number): Promise<number> =>
-  run((s) => s.notifications.filter((n) => n.user_id === userId && !n.is_read).length);
-
-export const markNotificationsRead = (userId: number): Promise<void> =>
-  run((s) => { s.notifications.forEach((n) => { if (n.user_id === userId) n.is_read = true; }); });
+  if (!response.ok) {
+    throw new Error('Could not mark notifications as read');
+  }
+}
 
 const digitsOnly = (v: string) => v.replace(/[^0-9Xx]/g, '').toUpperCase();
 
@@ -262,36 +227,35 @@ function receiptView(s: DBState, receiptId: number): ReceiptView {
 }
 
 // receipts + transactions (members see only their own)
-export const listReceipts = (opts: { userId?: number; search?: string } = {}): Promise<ReceiptView[]> =>
-  run((s) => {
-    const q = (opts.search ?? '').trim().toLowerCase();
-    const qDigits = digitsOnly(q);
-    return s.receipts
-      .map((r) => receiptView(s, r.receipt_id))
-      .filter((r) => opts.userId === undefined || r.user_id === opts.userId)
-      .filter((r) => !q
-        || (qDigits.length >= 3 && r.isbn !== null && r.isbn.includes(qDigits))
-        || r.transaction_code.toLowerCase().includes(q)
-        || r.title.toLowerCase().includes(q)
-        || r.member_name.toLowerCase().includes(q))
-      .sort((a, b) => b.receipt_id - a.receipt_id);
-  });
+export const listReceipts = async (opts: { userId?: number; search?: string } = {}): Promise<ReceiptView[]> => {
+  const q = new URLSearchParams();
+  if (opts.userId !== undefined) q.set('user_id', String(opts.userId));
+  if (opts.search?.trim()) q.set('search', opts.search.trim());
+  const response = await fetch(`${API}/receipts?${q}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch receipts');
+  }
+  return response.json() as Promise<ReceiptView[]>;
+}
 
-export const dashboardStats = () =>
-  run((s) => {
-    const active = s.loans.filter((l) => l.return_date === null);
-    const t = today();
-    return {
-      books: s.books.filter((b) => b.is_active).length,
-      media: s.media.filter((m) => m.is_active).length,
-      members: s.members.filter((m) => m.is_active).length,
-      activeLoans: active.length,
-      overdue: active.filter((l) => l.due_date < t).length,
-      readyHolds: s.holds.filter((h) => h.status === 'ready').length,
-      unpaidTotal: s.fines.filter((f) => f.paid_status === 'unpaid').reduce((a, f) => a + f.amount, 0),
-    };
-  });
-
+export interface DashboardStats {
+  books: number;
+  media: number;
+  members: number;
+  activeLoans: number;
+  overdue: number;
+  readyHolds: number;
+  unpaidTotal: number;
+}
+ 
+export const dashboardStats = async (): Promise<DashboardStats> => {
+  const response = await fetch(`${API}/stats`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch dashboard stats');
+  }
+  return response.json() as Promise<DashboardStats>;
+}
+  
 export const saveAuthor = async (a: Partial<Author>): Promise<void> => {
   if (!a.first_name?.trim()) throw new Error('First name is required.');
   if (!a.last_name?.trim()) throw new Error('Last name is required.');
@@ -315,14 +279,7 @@ export const saveAuthor = async (a: Partial<Author>): Promise<void> => {
     throw new Error(data?.error ?? `Could not save author (${response.status}).`);
   }
 }
-  /*
-  run((s) => {
-    need(a.first_name, 'First name');
-    need(a.last_name, 'Last name');
-    if (a.author_id) Object.assign(s.authors.find((x) => x.author_id === a.author_id)!, a);
-    else s.authors.push({ author_id: nextId(s, 'authors'), first_name: a.first_name!, last_name: a.last_name! });
-  });
-  */
+
 
 export const deleteAuthor = async (id: number): Promise<void> => {
   const url = `https://umas-library-server.vercel.app/authors/${id}`;
@@ -335,12 +292,7 @@ export const deleteAuthor = async (id: number): Promise<void> => {
     throw new Error(`Could not delete author (${response.status}).`);
   }
 }
-/*
-  run((s) => {
-    if (s.bookAuthors.some((ba) => ba.author_id === id)) throw new Error('This author is linked to one or more books. Remove them from those books first.');
-    s.authors = s.authors.filter((a) => a.author_id !== id);
-  });
-*/
+
 
 export const saveBook = async (b: Partial<Book> & { author_ids?: number[] }, addCopies = 0): Promise<void> => {
   if (!b.title?.trim()) throw new Error('Title is required.');
@@ -376,36 +328,7 @@ export const saveBook = async (b: Partial<Book> & { author_ids?: number[] }, add
     throw new Error(data?.error ?? `Could not save book (${response.status}).`);
   }
 }
-  /*
-  run((s) => {
-    need(b.title, 'Title');
-    const isbn = digitsOnly(b.isbn ?? '');
-    if (isbn && isbn.length !== 10 && isbn.length !== 13) throw new Error('ISBN must have 10 or 13 digits.');
-    if (isbn && s.books.some((x) => x.isbn === isbn && x.book_id !== b.book_id)) throw new Error('Another book already has that ISBN.');
-    const authorIds = [...new Set((b.author_ids ?? []).map(Number))];
-    if (authorIds.length === 0) throw new Error('Choose at least one author.');
-    if (authorIds.some((aid) => !s.authors.some((a) => a.author_id === aid))) throw new Error('Choose valid authors.');
-    let id = b.book_id;
-    if (id) {
-      if (b.is_active === false && s.bookCopies.some((c) => c.book_id === id && (c.status === 'loaned' || c.status === 'held')))
-        throw new Error('Cannot archive: copies are on loan or held.');
-      const cur = s.books.find((x) => x.book_id === id)!;
-      cur.title = b.title!;
-      cur.isbn = isbn;
-      cur.publisher = b.publisher ?? '';
-      if (b.is_active !== undefined) cur.is_active = b.is_active;
-    } else {
-      id = nextId(s, 'books');
-      s.books.push({ book_id: id, title: b.title!, isbn, publisher: b.publisher ?? '', is_active: true });
-      addCopies = Math.max(addCopies, 1);
-    }
-
-    s.bookAuthors = s.bookAuthors.filter((ba) => ba.book_id !== id);
-    authorIds.forEach((author_id, i) => s.bookAuthors.push({ book_id: id!, author_id, author_order: i + 1 }));
-    for (let i = 0; i < addCopies; i++) s.bookCopies.push({ copy_id: nextId(s, 'bookCopies'), book_id: id, status: 'available' });
-  });
-  */
-
+ 
 export const deleteBook = async (id: number): Promise<void> => {
   const url =`https://umas-library-server.vercel.app/books/${id}`;
 
@@ -417,116 +340,185 @@ export const deleteBook = async (id: number): Promise<void> => {
     throw new Error(`Could not delete book (${response.status}).`);
   }
 }
-  /*
-  run((s) => {
-    if (s.bookCopies.some((c) => c.book_id === id && (c.status === 'loaned' || c.status === 'held')))
-      throw new Error('Cannot archive: copies are on loan or held.');
-    s.books.find((b) => b.book_id === id)!.is_active = false;
+
+
+export const saveMedia = async (m: Partial<Media>, addCopies = 0): Promise<void> => {
+  if (!m.title?.trim()) throw new Error('Title is required.');
+  if (!m.media_type) throw new Error('Media type is required.');
+ 
+  const updating = m.media_id != null;
+  const url = updating
+    ? `${API}/media/${m.media_id}`
+    : `${API}/media`;
+ 
+  const response = await fetch(url, {
+    method: updating ? 'PUT' : 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: m.title.trim(),
+      media_type: m.media_type,
+      is_active: m.is_active,
+      addCopies: updating ? Math.max(0, addCopies) : Math.max(1, addCopies)
+    })
   });
-  */
+ 
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error ?? `Could not save media (${response.status}).`);
+  }
+}
 
-export const saveMedia = (m: Partial<Media>, addCopies = 0): Promise<void> =>
-  run((s) => {
-    need(m.title, 'Title');
-    need(m.media_type, 'Media type');
-    let id = m.media_id;
-    if (id) {
-      if (m.is_active === false && s.mediaCopies.some((c) => c.media_id === id && (c.status === 'loaned' || c.status === 'held')))
-        throw new Error('Cannot archive: copies are on loan or held.');
-      Object.assign(s.media.find((x) => x.media_id === id)!, m);
-    } else {
-      id = nextId(s, 'media');
-      s.media.push({ media_id: id, title: m.title!, media_type: m.media_type!, is_active: true });
-      addCopies = Math.max(addCopies, 1);
-    }
-    for (let i = 0; i < addCopies; i++) s.mediaCopies.push({ media_copy_id: nextId(s, 'mediaCopies'), media_id: id, status: 'available' });
+export const deleteMedia = async (id: number): Promise<void> => {
+  const response = await fetch(`${API}/media/${id}`, {
+    method: 'PATCH',
   });
-
-export const deleteMedia = (id: number): Promise<void> =>
-  run((s) => {
-    if (s.mediaCopies.some((c) => c.media_id === id && (c.status === 'loaned' || c.status === 'held')))
-      throw new Error('Cannot archive: copies are on loan or held.');
-    s.media.find((m) => m.media_id === id)!.is_active = false;
+ 
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error ?? `Could not archive media (${response.status}).`);
+  }
+}
+ 
+export const saveRoom = async (r: Partial<Room>): Promise<void> => {
+if (!r.room_number?.trim()) throw new Error('Room number is required.');
+ 
+  const updating = r.room_id != null;
+  const url = updating
+    ? `${API}/rooms/${r.room_id}`
+    : `${API}/rooms`;
+ 
+  const response = await fetch(url, {
+    method: updating ? 'PUT' : 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      room_number: r.room_number.trim(),
+      room_level: Number(r.room_level) || 1,
+      capacity: Number(r.capacity) || 1,
+      is_active: r.is_active
+    })
   });
+ 
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error ?? `Could not save room (${response.status}).`);
+  }
+}
 
-export const saveRoom = (r: Partial<Room>): Promise<void> =>
-  run((s) => {
-    need(r.room_number, 'Room number');
-    const dup = s.rooms.some((x) => x.room_number === r.room_number && x.room_id !== r.room_id);
-    if (dup) throw new Error('A room with that number already exists.');
-    const rec = { ...r, room_level: Number(r.room_level), capacity: Number(r.capacity) };
-    if (r.room_id) Object.assign(s.rooms.find((x) => x.room_id === r.room_id)!, rec);
-    else s.rooms.push({ room_id: nextId(s, 'rooms'), room_number: r.room_number!, room_level: rec.room_level || 1, capacity: rec.capacity || 1, is_active: true });
+export const deleteRoom = async (id: number): Promise<void> => {
+  const response = await fetch(`${API}/rooms/${id}`, {
+    method: 'PATCH',
   });
-
-export const deleteRoom = (id: number): Promise<void> =>
-  run((s) => {
-    const now = new Date().toISOString().slice(0, 16);
-    if (s.reservations.some((r) => r.room_id === id && r.end_time > now)) throw new Error('Cannot archive: room has upcoming reservations.');
-    s.rooms.find((r) => r.room_id === id)!.is_active = false;
+ 
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error ?? `Could not archive room (${response.status}).`);
+  }
+}
+  
+export const saveMember = async (m: Partial<Member>): Promise<void> => {
+if (!m.first_name?.trim()) throw new Error('First name is required.');
+  if (!m.last_name?.trim()) throw new Error('Last name is required.');
+  if (!m.email?.trim()) throw new Error('Email is required.');
+  if (!/^\S+@\S+\.\S+$/.test(m.email)) throw new Error('Enter a valid email address.');
+ 
+  const updating = m.user_id != null;
+  if (!updating && !m.password) throw new Error('Password is required.');
+  const url = updating
+    ? `${API}/members/${m.user_id}`
+    : `${API}/members`;
+ 
+  const response = await fetch(url, {
+    method: updating ? 'PUT' : 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      first_name: m.first_name.trim(),
+      last_name: m.last_name.trim(),
+      email: m.email.trim(),
+      password: m.password || undefined,
+      role: m.role === 'faculty' ? 'faculty' : 'student',
+      is_active: m.is_active
+    })
   });
-
-export const saveMember = (m: Partial<Member>): Promise<void> =>
-  run((s) => {
-    need(m.first_name, 'First name');
-    need(m.last_name, 'Last name');
-    need(m.email, 'Email');
-    if (!/^\S+@\S+\.\S+$/.test(m.email!)) throw new Error('Enter a valid email address.');
-    assertEmailFree(s, m.email!, m.user_id ? { table: 'members', id: m.user_id } : undefined);
-    if (m.user_id) {
-      const cur = s.members.find((x) => x.user_id === m.user_id)!;
-      if (m.is_active === false && s.loans.some((l) => l.user_id === cur.user_id && l.return_date === null))
-        throw new Error('Cannot deactivate: member has items on loan.');
-      Object.assign(cur, { ...m, password: m.password ? m.password : cur.password });
-    } else {
-      need(m.password, 'Password');
-      s.members.push({
-        user_id: nextId(s, 'members'), first_name: m.first_name!, last_name: m.last_name!,
-        email: m.email!.trim(), password: m.password!, role: m.role === 'faculty' ? 'faculty' : 'student', is_active: true,
-      });
-    }
+ 
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error ?? `Could not save member (${response.status}).`);
+  }
+}
+ 
+export const deleteMember = async (id: number): Promise<void> => {
+  const response = await fetch(`${API}/members/${id}`, {
+    method: 'PATCH',
   });
+ 
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error ?? `Could not deactivate member (${response.status}).`);
+  }
+}
 
-export const deleteMember = (id: number): Promise<void> =>
-  run((s) => {
-    if (s.loans.some((l) => l.user_id === id && l.return_date === null)) throw new Error('Cannot deactivate: member has items on loan.');
-    s.members.find((m) => m.user_id === id)!.is_active = false;
+export const saveStaff = async (m: Partial<Staff>): Promise<void> => {
+   if (!m.first_name?.trim()) throw new Error('First name is required.');
+  if (!m.last_name?.trim()) throw new Error('Last name is required.');
+  if (!m.email?.trim()) throw new Error('Email is required.');
+  if (!/^\S+@\S+\.\S+$/.test(m.email)) throw new Error('Enter a valid email address.');
+ 
+  const updating = m.staff_id != null;
+  if (!updating && !m.password) throw new Error('Password is required.');
+  const url = updating
+    ? `${API}/staff/${m.staff_id}`
+    : `${API}/staff`;
+ 
+  const response = await fetch(url, {
+    method: updating ? 'PUT' : 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      first_name: m.first_name.trim(),
+      last_name: m.last_name.trim(),
+      email: m.email.trim(),
+      password: m.password || undefined,
+      is_admin: !!m.is_admin,
+      is_active: m.is_active
+    })
   });
+ 
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error ?? `Could not save staff member (${response.status}).`);
+  }
+}
 
-export const saveStaff = (m: Partial<Staff>): Promise<void> =>
-  run((s) => {
-    need(m.first_name, 'First name');
-    need(m.last_name, 'Last name');
-    need(m.email, 'Email');
-    if (!/^\S+@\S+\.\S+$/.test(m.email!)) throw new Error('Enter a valid email address.');
-    assertEmailFree(s, m.email!, m.staff_id ? { table: 'staff', id: m.staff_id } : undefined);
-    if (m.staff_id) {
-      const cur = s.staff.find((x) => x.staff_id === m.staff_id)!;
-      const next = { ...cur, ...m, password: m.password ? m.password : cur.password };
-      const admins = s.staff.filter((x) => x.staff_id !== cur.staff_id && x.is_admin && x.is_active).length;
-      if (admins === 0 && !(next.is_admin && next.is_active)) throw new Error('At least one active administrator is required.');
-      Object.assign(cur, next);
-    } else {
-      need(m.password, 'Password');
-      s.staff.push({
-        staff_id: nextId(s, 'staff'), first_name: m.first_name!, last_name: m.last_name!, email: m.email!.trim(),
-        password: m.password!, is_admin: !!m.is_admin, is_active: true,
-      });
-    }
+export const deleteStaff = async (id: number): Promise<void> => {
+ const response = await fetch(`${API}/staff/${id}`, {
+    method: 'PATCH',
   });
-
-export const deleteStaff = (id: number): Promise<void> =>
-  run((s) => {
-    const cur = s.staff.find((x) => x.staff_id === id)!;
-    const admins = s.staff.filter((x) => x.staff_id !== id && x.is_admin && x.is_active).length;
-    if (cur.is_admin && admins === 0) throw new Error('At least one active administrator is required.');
-    cur.is_active = false;
+ 
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error ?? `Could not deactivate staff member (${response.status}).`);
+  }
+}
+ 
+export const doCheckout = async (userId: number, kind: ItemKind, itemId: number) => {
+  const res = await fetch(`${API}/loans`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, kind, itemId }),
   });
-
-export const doCheckout = (userId: number, kind: ItemKind, itemId: number) =>
-  run((s) => rules.checkout(s, userId, kind, itemId));
-export const doReturn = (loanId: number) => run((s) => rules.returnLoan(s, loanId));
-
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Could not check out item');
+  return data;
+};
+  
+export const doReturn = async (loanId: number): Promise<{ fine: { fine_id: number; amount: number } | null }> => {
+  const res = await fetch(`${API}/loans/${loanId}/return`, {
+    method: 'POST',
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Could not return item');
+  return data;
+};
+ 
 export const doPlaceHold = async (userId: number, kind: ItemKind, itemId: number) => {
   const res = await fetch(`${API}/holds`, {
     method: 'POST',
@@ -538,16 +530,55 @@ export const doPlaceHold = async (userId: number, kind: ItemKind, itemId: number
   return data;
 };
 
-export const doCancelHold = (holdId: number) => run((s) => rules.cancelHold(s, holdId));
-export const doPayFine = (fineId: number, method: string, staffId: number) =>
-  run((s) => receiptView(s, rules.payFine(s, fineId, method, staffId).receipt_id));
-export const doReserveRoom = (userId: number, roomId: number, start: string, end: string) =>
-  run((s) => rules.reserveRoom(s, userId, roomId, start, end));
-export const cancelReservation = (id: number): Promise<void> =>
-  run((s) => {
-    const r = s.reservations.find((x) => x.reservation_id === id);
-    if (r && r.end_time <= nowLocal()) throw new Error('This reservation has ended and was archived.');
-    s.reservations = s.reservations.filter((x) => x.reservation_id !== id);
+export const doCancelHold = async (holdId: number, userId?: number) => {
+  const res = await fetch(`${API}/holds/${holdId}/cancel`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId }),
   });
-export const runMaintenance = () => run((s) => rules.expireHolds(s));
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Could not cancel hold');
+  return data;
+};
+ 
+export const doPayFine = async (fineId: number, method: string, staffId: number): Promise<ReceiptView> => {
+  const res = await fetch(`${API}/fines/${fineId}/pay`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ method, staffId }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Could not record payment');
+  return data as ReceiptView;
+};
+ 
+export const doReserveRoom = async (userId: number, roomId: number, start: string, end: string) => {
+  const res = await fetch(`${API}/reservations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, roomId, start, end }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Could not reserve room');
+  return data;
+};
+ 
+export const cancelReservation = async (id: number): Promise<void> => {
+  const res = await fetch(`${API}/reservations/${id}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error ?? 'Could not cancel reservation');
+  }
+};
+ 
+export const runMaintenance = async (): Promise<number> => {
+  const res = await fetch(`${API}/holds/expire`, {
+    method: 'POST',
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Could not run hold expiry');
+  return data;
+};
 export const resetDemoData = async () => { resetState(); loadState(); };
