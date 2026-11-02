@@ -34,7 +34,7 @@ export async function saveAuthor(database, author) {
             .input('first_name', sql.NVarChar(50), first_name)
             .input('last_name', sql.NVarChar(50), last_name)
             .query(`
-                INSERT INTO authors (first_name, last_name)
+                INSERT INTO author (first_name, last_name)
                 VALUES (@first_name, @last_name)
             `);
 
