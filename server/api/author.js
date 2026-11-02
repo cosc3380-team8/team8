@@ -26,24 +26,21 @@ export async function listAuthors(database, search = '') {
         return result.recordset;
 }
 
-export async function saveAuthor(database, author, book_id) {
-    const { author_id, first_name, last_name } = author;
-    try{
-        const result = await database.poolconnection
+export async function saveAuthor(database, author) {
+    const { first_name, last_name } = author;
+    try {
+        const result = await database
             .request()
-            .input('author_id', sql.Int, author_id)
             .input('first_name', sql.NVarChar(50), first_name)
             .input('last_name', sql.NVarChar(50), last_name)
-            .input('book_id', sql.Int, book_id)
             .query(`
-                INSERT INTO authors (author_id, first_name, last_name)
-                VALUES (@author_id, @first_name, @last_name);
-                INSERT INTO book_author (book_id, author_id)
-                VALUES (@book_id, @author_id)
+                INSERT INTO authors (first_name, last_name)
+                VALUES (@first_name, @last_name)
             `);
+
         return result;
-    }catch(error){
-        console.error(error);
+    } catch (error) {
+        console.error('Error saving author:', error);
         throw error;
     }
 }

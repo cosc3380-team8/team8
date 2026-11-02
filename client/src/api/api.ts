@@ -292,13 +292,37 @@ export const dashboardStats = () =>
     };
   });
 
-export const saveAuthor = (a: Partial<Author>): Promise<void> =>
+export const saveAuthor = async (a: Partial<Author>): Promise<void> => {
+  if (!a.first_name?.trim()) throw new Error('First name is required.');
+  if (!a.last_name?.trim()) throw new Error('Last name is required.');
+
+  const updating = a.author_id != null;
+  const url = updating
+    ? `https://umas-library-server.vercel.app/authors/${a.author_id}` 
+    : 'https://umas-library-server.vercel.app/authors';
+
+  const response = await fetch(url, {
+    method: updating ? 'PUT' : 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      first_name: a.first_name.trim(),
+      last_name: a.last_name.trim()
+    })
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error ?? `Could not save author (${response.status}).`);
+  }
+}
+  /*
   run((s) => {
     need(a.first_name, 'First name');
     need(a.last_name, 'Last name');
     if (a.author_id) Object.assign(s.authors.find((x) => x.author_id === a.author_id)!, a);
     else s.authors.push({ author_id: nextId(s, 'authors'), first_name: a.first_name!, last_name: a.last_name! });
   });
+  */
 
 export const deleteAuthor = (id: number): Promise<void> =>
   run((s) => {

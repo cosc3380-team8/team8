@@ -168,6 +168,24 @@ const server = http.createServer(async (req, res) => {
         return;
     }
     else if (req.method === 'POST' && url.pathname === '/authors') {
+        try {
+            const body = await readJson(req);
+            const database = await sql.connect(await getSqlConfig());
+
+            const author = await saveAuthor(database, body);
+
+            res.writeHead(201, { 'content-type': 'application/json' });
+            res.end(JSON.stringify(author));
+        } catch (error) {
+            console.error('Error saving author:', error);
+
+            const status = error.statusCode || 500;
+            res.writeHead(status, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({
+                error: status < 500 ? error.message : 'An error occurred while saving this author.'
+            }));
+        }
+
         return;
     }
     
