@@ -371,7 +371,7 @@ export const saveBook = async (b: Partial<Book> & { author_ids?: number[] }, add
   */
 
 export const deleteBook = async (id: number): Promise<void> => {
-  const url =`https://umas-library.vercel.app/books/${id}`;
+  const url =`https://umas-library-server.vercel.app/books/${id}`;
 
   const response = await fetch(url, {
     method: 'PATCH',
