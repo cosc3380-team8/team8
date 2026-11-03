@@ -50,7 +50,7 @@ export async function listWaitlist(database, { userId, activeOnly = false } = {}
         w.book_id,
         w.media_id,
         CONVERT(char(10), w.request_time, 23) AS request_date,
-        w.satus AS status,
+        w.status AS status,
         CAST(NULL AS date) AS ready_date,
         CAST(NULL AS date) AS expiration_date,
         ROW_NUMBER() OVER (
