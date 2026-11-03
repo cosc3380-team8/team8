@@ -331,15 +331,9 @@ const server = http.createServer(async (req, res) => {
     // Route handlers for reservations
     else if (req.method === 'GET' && url.pathname === '/reservations') {
         try {
-            const userId = url.searchParams.get('user_id') ? Number(url.searchParams.get('user_id')) : undefined;
+            const userId = url.searchParams.get('user_id') ? Number(url.searchParams.get('user_id')) : null;
             const database = await sql.connect(await getSqlConfig());
-            let reservations;
-
-            if (userId !== undefined) {
-                reservations = await listReservations(database, userId);
-            } else {
-                reservations = await listReservations(database, null);
-            }
+            const reservations = await listReservations(database, userId);
 
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(reservations));

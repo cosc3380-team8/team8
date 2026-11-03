@@ -1,11 +1,7 @@
 import sql from 'mssql'
 
 export async function listReservations(database, user_id) {
-    if (user_id !== undefined) {
-        if (isNaN(user_id)) {
-            throw new Error('Invalid user_id query parameter');
-        }
-
+    if (user_id !== null) {
         const result = await database
             .request()
             .input('user_id', sql.Int, user_id)
