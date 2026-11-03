@@ -329,7 +329,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Route handlers for reservations
-    else if (req.method === 'GET' && url.pathname === '/reservations') {
+    else if (req.method === 'GET' && url.pathname.startsWith('/reservations')) {
         const userId = Number(url.searchParams.get('user_id'));
 
         if (isNaN(userId)) {
