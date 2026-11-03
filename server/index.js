@@ -5,7 +5,7 @@ import { listBooks, addBook, deleteBook, updateBook } from './api/books.js';
 import { listAuthors, saveAuthor, deleteAuthor, updateAuthor } from './api/author.js';
 import { listLoans } from './api/loans.js';
 import { listMedia, addMedia, deleteMedia} from './api/media.js';
-import { listRooms } from './api/rooms.js';
+import { listRooms, saveRoom, deleteRoom, listReservations } from './api/rooms.js';
 import { listMembers } from './api/members.js';
 import { listStaff, saveStaff, deleteStaff } from './api/staff.js';
 import { listFines } from './api/fines.js';
@@ -149,7 +149,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Route handlers for authors
-    if (req.method === 'GET' && url.pathname === '/authors') {
+    else if (req.method === 'GET' && url.pathname === '/authors') {
         try {
             const database = await sql.connect(await getSqlConfig());
             const books = await listAuthors(database, url.searchParams.get('search') || '');
@@ -326,7 +326,33 @@ const server = http.createServer(async (req, res) => {
     else if (req.method === 'DELETE' && url.pathname.startsWith('/rooms')) {
         return;
     }
-        
+
+    // Route handlers for reservations
+    else if (req.method === 'GET' && url.pathname === '/reservations') {
+        const userId = Number(url.searchParams.get('user_id'));
+
+        if (isNaN(userId)) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Invalid user_id query parameter' }));
+            return;
+        }
+
+        try {
+            const database = await sql.connect(await getSqlConfig());
+
+            const reservations = await listReservations(database, userId);
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(reservations));
+        } catch (error) {
+            const status = error.statusCode || 500;
+            console.error('Error fetching reservations:', error);
+            res.writeHead(status, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'An error occurred while fetching reservations.' }));
+        }
+
+        return;
+    }
     // Route handlers for members
     else if (req.method === 'GET' && url.pathname === '/members') {
         try {
