@@ -558,8 +558,12 @@ export const doReserveRoom = async (userId: number, roomId: number, start: strin
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId, roomId, start, end }),
   });
-  const data = await res.json();
+
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : null;
+
   if (!res.ok) throw new Error(data.error || 'Could not reserve room');
+  
   return data;
 };
  
