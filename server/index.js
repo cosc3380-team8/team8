@@ -330,9 +330,10 @@ const server = http.createServer(async (req, res) => {
 
     // Route handlers for reservations
     else if (req.method === 'GET' && url.pathname.startsWith('/reservations')) {
-        const userId = Number(url.searchParams.get('user_id'));
+        const rawUserId = url.searchParams.get('user_id');
+        const userId = Number(rawUserId);
 
-        if (isNaN(userId)) {
+        if (isNaN(rawUserId) || isNaN(userId) || userId <= 0) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Invalid user_id query parameter' }));
             return;
