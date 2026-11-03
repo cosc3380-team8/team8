@@ -17,8 +17,13 @@ export async function listReservations(database, user_id) {
                     rr.user_id,
                     rr.room_id,
                     rr.start_time,
-                    rr.end_time
+                    rr.end_time,
+                    r.room_number AS room_number,
+                    CONCAT(u.first_name, ' ', u.last_name) AS member_name
+                    CASE WHEN rr.is_active = 0 THEN CASE(1 as bit) ELSE CASE(0 as bit) END AS archived
                 FROM room_reservations AS rr
+                JOIN room AS r ON rr.room_id = r.room_id
+                JOIN user AS u ON rr.user_id = u.user_id
                 WHERE rr.user_id = @user_id
                 ORDER BY rr.start_time DESC
             `);
@@ -33,8 +38,13 @@ export async function listReservations(database, user_id) {
                     rr.user_id,
                     rr.room_id,
                     rr.start_time,
-                    rr.end_time
+                    rr.end_time,
+                    r.room_number AS room_number,
+                    CONCAT(u.first_name, ' ', u.last_name) AS member_name
+                    CASE WHEN rr.is_active = 0 THEN CASE(1 as bit) ELSE CASE(0 as bit) END AS archived
                 FROM room_reservations AS rr
+                JOIN room AS r ON rr.room_id = r.room_id
+                JOIN user AS u ON rr.user_id = u.user_id
                 ORDER BY rr.start_time DESC
             `);
             
