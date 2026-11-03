@@ -157,13 +157,14 @@ export const listFines = async (userId?: number): Promise<FineView[]> => {
 }
 
 // archive reservations past end time
-export const listReservations = async (userId?: number): Promise<ReservationView[]> => {
-  const q = new URLSearchParams();
-  if (userId !== undefined) q.set('user_id', String(userId));
+export const listReservations = async (userId: number): Promise<ReservationView[]> => {
+  const q = new URLSearchParams( { user_id: String(userId) } );
   const response = await fetch(`${API}/reservations?${q}`);
+
   if (!response.ok) {
     throw new Error('Failed to fetch reservations');
   }
+
   return response.json() as Promise<ReservationView[]>;
 }
 
