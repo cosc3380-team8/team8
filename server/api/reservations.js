@@ -58,21 +58,13 @@ export async function listReservations(database, user_id) {
     }
 }
 
-export async function reserveRoom(database, room_id, user_id, start_time, end_time) {
-    try {
-        const result = await database
-            .request()
-            .input('room_id', sql.Int, room_id)
-            .input('user_id', sql.Int, user_id)
-            .input('start_time', sql.DateTime, start_time)
-            .input('end_time', sql.DateTime, end_time)
-            .query(`
-                INSERT INTO room_reservations (room_id, user_id, start_time, end_time)
-                VALUES (@room_id, @user_id, @start_time, @end_time)
-            `);
-        return result;
-    } catch (error) {
-        console.error(error);
-        throw error;
-    }
+export async function saveRoomReservation(database, input) {
+    return database
+        .request()
+        .input('p_reservation_id', sql.Int, input.reservation_id ?? null)
+        .input('p_user_id', sql.Int, input.userId)
+        .input('p_room_id', sql.Int, input.roomId)
+        .input('p_start', sql.DateTime2(0), input.start)
+        .input('p_end', sql.DateTime2(0), input.end)
+        .execute('dbo.save_room_reservation');
 }

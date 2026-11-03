@@ -332,7 +332,7 @@ const server = http.createServer(async (req, res) => {
     else if (req.method === 'GET' && url.pathname === '/reservations') {
         const rawUserId = url.searchParams.get('user_id');
         const userId = rawUserId === null ? undefined : Number(rawUserId);
-        
+
         try {
             const database = await sql.connect(await getSqlConfig());
             const reservations = await listReservations(database, userId);
@@ -344,6 +344,25 @@ const server = http.createServer(async (req, res) => {
             console.error('Error fetching reservations:', error);
             res.writeHead(status, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'An error occurred while fetching reservations.' }));
+        }
+
+        return;
+    }
+    else if (req.method === 'POST' && url.pathname === '/reservations') {
+        try {
+            const body = await readJson(req);
+            body.reservation_id = null; // Ensure reservation_id is null for new reservations
+
+            const database = await sql.connect(await getSqlConfig());
+            await saveRoomReservation(database, body);
+            
+            res.writeHead(201);
+            res.end();
+        } catch (error) {
+            const status = error.statusCode || 500;
+            console.error('Error creating reservation:', error);
+            res.writeHead(status, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'An error occurred while creating the reservation.' }));
         }
 
         return;
