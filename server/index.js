@@ -52,14 +52,6 @@ const server = http.createServer(async (req, res) => {
 
     const url = new URL(req.url, baseUrl);
 
-    const database = await sql.connect(await getSqlConfig());
-
-    const identity = await database.request().query(`
-        SELECT USER_NAME() AS database_user, SUSER_SNAME() AS login_name;
-    `);
-
-    console.log('SQL identity:', identity.recordset[0]);
-
     // Route handlers for books
     if (req.method === 'GET' && url.pathname === '/books') {
         try {
