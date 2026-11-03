@@ -329,20 +329,17 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Route handlers for reservations
-    else if (req.method === 'GET' && url.pathname.startsWith('/reservations')) {
-        const rawUserId = url.searchParams.get('user_id');
-        const userId = Number(rawUserId);
-
-        if (isNaN(rawUserId) || isNaN(userId) || userId <= 0) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Invalid user_id query parameter' }));
-            return;
-        }
-
+    else if (req.method === 'GET' && url.pathname === '/reservations') {
         try {
+            const userId = url.searchParams.get('user_id') ? Number(url.searchParams.get('user_id')) : undefined;
             const database = await sql.connect(await getSqlConfig());
+            let reservations;
 
-            const reservations = await listReservations(database, userId);
+            if (userId !== undefined) {
+                reservations = await listReservations(database, userId);
+            } else {
+                reservations = await listReservations(database, null);
+            }
 
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(reservations));
