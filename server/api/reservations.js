@@ -68,3 +68,20 @@ export async function saveRoomReservation(database, input) {
         .input('p_end', sql.DateTime2(0), input.end)
         .execute('dbo.save_room_reservation');
 }
+
+export async function cancelRoomReservation(database, reservationId) {
+    const result = await database
+        .request()
+        .input('reservation_id', sql.Int, reservationId)
+        .query(`
+            UPDATE room_reservations
+            SET is_active = 0
+            WHERE reservation_id = @reservation_id
+        `);
+    
+    if (result.rowsAffected[0] === 0) {
+        const error = new Error('Reservation not found');
+        error.statusCode = 404;
+        throw error;
+    }
+}

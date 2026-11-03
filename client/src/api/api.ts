@@ -563,13 +563,13 @@ export const doReserveRoom = async (userId: number, roomId: number, start: strin
   const data = text ? JSON.parse(text) : null;
 
   if (!res.ok) throw new Error(data.error || 'Could not reserve room');
-  
+
   return data;
 };
  
 export const cancelReservation = async (id: number): Promise<void> => {
   const res = await fetch(`${API}/reservations/${id}`, {
-    method: 'DELETE',
+    method: 'PATCH',
   });
   if (!res.ok) {
     const data = await res.json().catch(() => null);

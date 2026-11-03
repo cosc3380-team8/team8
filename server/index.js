@@ -6,7 +6,7 @@ import { listAuthors, saveAuthor, deleteAuthor, updateAuthor } from './api/autho
 import { listLoans } from './api/loans.js';
 import { listMedia, addMedia, deleteMedia} from './api/media.js';
 import { listRooms, saveRoom, deleteRoom } from './api/rooms.js';
-import { listReservations, saveRoomReservation } from './api/reservations.js';
+import { listReservations, saveRoomReservation, cancelRoomReservation } from './api/reservations.js';
 import { listMembers } from './api/members.js';
 import { listStaff, saveStaff, deleteStaff } from './api/staff.js';
 import { listFines } from './api/fines.js';
@@ -365,6 +365,29 @@ const server = http.createServer(async (req, res) => {
             res.end(JSON.stringify({ error: 'An error occurred while creating the reservation.' }));
         }
 
+        return;
+    }
+    else if (req.method === 'PATCH' && url.pathname.startsWith('/reservations/')) {
+        const match = url.pathname.match(/^\/reservations\/(\d+)$/);
+        if (!match) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Reservation not found.' }));
+            return;
+        }
+
+        try {
+            const database = await sql.connect(await getSqlConfig());
+            const reservation_id = Number(match[1]);
+            await cancelRoomReservation(database, reservation_id);
+
+            res.writeHead(204);
+            res.end();
+        } catch (error) {
+            const status = error.statusCode || 500;
+            console.error('Error cancelling reservation:', error);
+            res.writeHead(status, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'An error occurred while cancelling the reservation.' }));
+        }
         return;
     }
     // Route handlers for members
