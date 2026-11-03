@@ -1,17 +1,23 @@
 import sql from 'mssql'
 
 export async function listReservations(database, user_id) {
-    if (user_id !== null) {
+    if (user_id !== undefined) {
+        if (isNaN(user_id)) {
+            const error = new Error('Invalid user_id query parameter');
+            error.statusCode = 400;
+            throw error;
+        }
+
         const result = await database
             .request()
             .input('user_id', sql.Int, user_id)
             .query(`
                 SELECT
                     rr.reservation_id,
-                    rr.room_id,
                     rr.user_id,
+                    rr.room_id,
                     rr.start_time,
-                    rr.end_time,
+                    rr.end_time
                 FROM room_reservations AS rr
                 WHERE rr.user_id = @user_id
                 ORDER BY rr.start_time DESC
@@ -24,10 +30,10 @@ export async function listReservations(database, user_id) {
             .query(`
                 SELECT
                     rr.reservation_id,
-                    rr.room_id,
                     rr.user_id,
+                    rr.room_id,
                     rr.start_time,
-                    rr.end_time,
+                    rr.end_time
                 FROM room_reservations AS rr
                 ORDER BY rr.start_time DESC
             `);
