@@ -59,7 +59,7 @@ export async function listReservations(database, user_id) {
 }
 
 export async function saveRoomReservation(database, input) {
-    return database
+    const result = await database
         .request()
         .input('p_reservation_id', sql.Int, input.reservation_id ?? null)
         .input('p_user_id', sql.Int, input.userId)
@@ -67,4 +67,6 @@ export async function saveRoomReservation(database, input) {
         .input('p_start', sql.DateTime2(0), input.start)
         .input('p_end', sql.DateTime2(0), input.end)
         .execute('dbo.save_room_reservation');
+
+    return result.recordset[0];
 }

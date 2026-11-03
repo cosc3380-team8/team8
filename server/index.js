@@ -354,10 +354,10 @@ const server = http.createServer(async (req, res) => {
             body.reservation_id = null; // Ensure reservation_id is null for new reservations
 
             const database = await sql.connect(await getSqlConfig());
-            await saveRoomReservation(database, body);
+            const reservation = await saveRoomReservation(database, body);
             
-            res.writeHead(201);
-            res.end();
+            res.writeHead(201, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(reservation));
         } catch (error) {
             const status = error.statusCode || 500;
             console.error('Error creating reservation:', error);
