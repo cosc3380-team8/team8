@@ -21,7 +21,7 @@ export async function listReservations(database, user_id) {
                     r.room_number AS room_number,
                     CONCAT(u.first_name, ' ', u.last_name) AS member_name,
                     CASE
-                        WHEN rr.end_time < GETDATE() THEN CAST(1 AS BIT)
+                        WHEN rr.end_time < GETDATE() OR rr.is_active = 0 THEN CAST(1 AS BIT)
                         ELSE CAST(0 AS BIT)
                     END AS archived
                 FROM room_reservations AS rr
@@ -45,7 +45,7 @@ export async function listReservations(database, user_id) {
                     r.room_number AS room_number,
                     CONCAT(u.first_name, ' ', u.last_name) AS member_name,
                     CASE
-                        WHEN rr.end_time < GETDATE() THEN CAST(1 AS BIT)
+                        WHEN rr.end_time < GETDATE() OR rr.is_active = 0 THEN CAST(1 AS BIT)
                         ELSE CAST(0 AS BIT)
                     END AS archived
                 FROM room_reservations AS rr
