@@ -266,9 +266,80 @@ const server = http.createServer(async (req, res) => {
         return;
     }
     else if (req.method === 'POST' && url.pathname === '/media') {
+        try {
+            const body = await readJson(req);
+            const database = await sql.connect(await getSqlConfig());
+
+            const media = await addMedia(database, body);
+
+            res.writeHead(201, { 'content-type': 'application/json' });
+            res.end(JSON.stringify(media));
+        } catch (error) {
+            console.error('Error saving media:', error);
+            const status = error.statusCode || 500;
+            res.writeHead(status, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({
+                error: status < 500 ? error.message : 'An error occurred while saving this media.'
+            }));
+
+        }
         return;
     }
-    else if (req.method === 'DELETE' && url.pathname.startsWith('/media')) {
+    else if (req.method === 'PUT' && url.pathname.startsWith('/media/')) {
+        const match = url.pathname.match(/^\/media\/(\d+)$/);
+
+        if (!match) {
+            res.writeHead(404, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Media not found.' }));
+            return;
+        }
+
+        const media_id = Number(match[1]);
+
+        try {
+            const body = await readJson(req);
+            const database = await sql.connect(await getSqlConfig());
+
+            await updateMedia(database, media_id, body);
+
+            res.writeHead(204);
+            res.end();
+        } catch (error) {
+            console.error('Error updating media:', error);
+            const status = error.statusCode || 500;
+            res.writeHead(status, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({
+                error: status < 500 ? error.message : 'An error occurred while updating this media.'
+            }));
+        }
+
+        return;
+    }
+    else if (req.method === 'PATCH' && url.pathname.startsWith('/media/')) {
+        const match = url.pathname.match(/^\/media\/(\d+)$/);
+        if (!match) {
+            res.writeHead(404, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Media not found.' }));
+            return;
+        }
+
+        try {
+            const database = await sql.connect(await getSqlConfig());
+            const media_id = Number(match[1]);
+
+            await deleteMedia(database, media_id);
+
+            res.writeHead(204);
+            res.end();
+        } catch (error) {
+            console.error('Error deleting media:', error);
+            const status = error.statusCode || 500;
+            res.writeHead(status, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({
+                error: status < 500 ? error.message : 'An error occurred while deleting this media.'
+            }));
+        }
+
         return;
     }
 

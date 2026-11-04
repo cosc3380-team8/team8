@@ -44,66 +44,175 @@ export async function listMedia(database, search = '') {
 }
 
 export async function addMedia(database, media) {
-    const { media_id, title, media_type, is_active } = media;
+    const {
+        title, 
+        media_type, 
+        is_active,
+        addCopies = 1
+    } = media;
 
-    if(title.length > 200) {
+    if(title.length > 150) {
         const error = new Error('Title is too long');
         error.statusCode = 400;
         throw error;
     }
 
+    const validMediaTypes = ['DVD', 'Audiobook', 'Device', 'Other'];
+    if (!validMediaTypes.includes(media_type)) {
+        const error = new Error('Invalid media type');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    if (isNaN(addCopies) || addCopies < 0) {
+        const error = new Error('Invalid addCopies value');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    if (typeof is_active !== 'boolean') {
+        const error = new Error('Invalid is_active value');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const transaction = new sql.Transaction(database);
+
     try {
-        const result = await database.poolconnection
-            .request()
-            .input('media_id', sql.Int, media_id)
+        await transaction.begin();
+        
+        const result = await new sql.Request(transaction)
             .input('title', sql.NVarChar(150), title)
             .input('media_type', sql.NVarChar(100), media_type)
             .input('is_active', sql.Bit, is_active)
             .query(`
-                INSERT INTO media_items (media_id, title, media_type, is_active)
-                VALUES (@media_id, @title, @media_type, @is_active)
+                INSERT INTO media (title, media_type, is_active)
+                OUTPUT INSERTED.media_id AS media_id
+                VALUES (@title, @media_type, @is_active)
             `);
-        return result;
+        
+        const mediaId = result.recordset[0].media_id;
+
+        for (let i = 0; i < addCopies; i++) {
+            await new sql.Request(transaction)
+                .input('media_id', sql.Int, mediaId)
+                .input('is_available', sql.Bit, true)
+                .input('is_active', sql.Bit, is_active)
+                .query(`
+                    INSERT INTO copies (media_id, is_available, is_active)
+                    VALUES (@media_id, @is_available, @is_active)
+                `);
+        }
+
+        await transaction.commit();
+        return { media_id: mediaId };
     } catch (error) {
+        try {
+            await transaction.rollback();
+        } catch {}
+
         console.error('Error adding media:', error);
         throw error;
     }
 }
 
-export async function updateMedia(database, media) {
-    const { media_id, title, media_type, is_active } = media;
+export async function updateMedia(database, media_id, media) {
+    const { 
+        title, 
+        media_type, 
+        is_active,
+        addCopies
+    } = media;
+
+    if (title.length > 150) {
+        const error = new Error('Title is too long');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const validMediaTypes = ['DVD', 'Audiobook', 'Device', 'Other'];
+    if (!validMediaTypes.includes(media_type)) {
+        const error = new Error('Invalid media type');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    if (addCopies !== undefined && (isNaN(addCopies) || addCopies < 0)) {
+        const error = new Error('Invalid addCopies value');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    if (typeof is_active !== 'boolean') {
+        const error = new Error('Invalid is_active value');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const transaction = new sql.Transaction(database);
+
     try {
-        const result = await database.poolconnection
-            .request()
+        await transaction.begin();
+
+        const result = await new sql.Request(transaction)
             .input('media_id', sql.Int, media_id)
             .input('title', sql.NVarChar(150), title)
             .input('media_type', sql.NVarChar(100), media_type)
             .input('is_active', sql.Bit, is_active)
             .query(`
-                UPDATE media_items
+                UPDATE media
                 SET title = @title,
                     media_type = @media_type,
                     is_active = @is_active
                 WHERE media_id = @media_id
             `);
-        return result;
+
+            if (result.rowsAffected[0] === 0) {
+                const error = new Error('Media not found');
+                error.statusCode = 404;
+                throw error;
+            }
+
+        // Add copies if needed
+        if (addCopies > 0) {
+            for (let i = 0; i < addCopies; i++) {
+                await new sql.Request(transaction)
+                    .input('media_id', sql.Int, media_id)
+                    .input('is_available', sql.Bit, true)
+                    .input('is_active', sql.Bit, is_active)
+                    .query(`
+                        INSERT INTO copies (media_id, is_available, is_active)
+                        VALUES (@media_id, @is_available, @is_active)
+                    `);
+            }
+        }
+
+        await transaction.commit();
     } catch (error) {
-        console.error('Error updating media:', error);
+        try {
+            await transaction.rollback();
+        } catch {}
+
         throw error;
     }
 }
 
 export async function deleteMedia(database, media_id) {
     try {
-        const result = await database.poolconnection
+        const result = await database
             .request()
             .input('media_id', sql.Int, media_id)
             .query(`
-                UPDATE media_items
+                UPDATE media
                 SET is_active = 0
                 WHERE media_id = @media_id
             `);
-        return result;
+        
+        if (result.rowsAffected[0] === 0) {
+            const error = new Error('Media not found');
+            error.statusCode = 404;
+            throw error;
+        }
     } catch (error) {
         console.error('Error deleting media:', error);
         throw error;
