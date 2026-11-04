@@ -4,7 +4,7 @@ import { getSqlConfig } from './config.js';
 import { listBooks, addBook, deleteBook, updateBook } from './api/books.js';
 import { listAuthors, saveAuthor, deleteAuthor, updateAuthor } from './api/author.js';
 import { listLoans } from './api/loans.js';
-import { listMedia, addMedia, deleteMedia} from './api/media.js';
+import { listMedia, addMedia, updateMedia, deleteMedia} from './api/media.js';
 import { listRooms, saveRoom, deleteRoom } from './api/rooms.js';
 import { listReservations, saveRoomReservation, cancelRoomReservation } from './api/reservations.js';
 import { listMembers } from './api/members.js';
