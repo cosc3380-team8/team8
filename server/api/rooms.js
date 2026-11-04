@@ -162,8 +162,8 @@ export async function updateRoom(database, room_id, room) {
 }
 
 export async function deleteRoom(database, room_id) {
-    try{
-        const result = await database.poolconnection
+    try {
+        const result = await database
             .request()
             .input('room_id', sql.Int, room_id)
             .query(`
@@ -171,9 +171,14 @@ export async function deleteRoom(database, room_id) {
                 SET is_active = 0
                 WHERE room_id = @room_id
             `);
-        return result;
-    }catch(error){
-        console.error(error);
+
+        if (result.rowsAffected[0] === 0) {
+            const error = new Error('Room not found');
+            error.statusCode = 404;
+            throw error;
+        }
+    } catch (error) {
+        console.error('Error deleting room:', error);
         throw error;
     }
 }

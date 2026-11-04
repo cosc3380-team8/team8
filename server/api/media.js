@@ -193,6 +193,7 @@ export async function updateMedia(database, media_id, media) {
             await transaction.rollback();
         } catch {}
 
+        console.error('Error updating media:', error);
         throw error;
     }
 }
