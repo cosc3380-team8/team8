@@ -409,10 +409,37 @@ const server = http.createServer(async (req, res) => {
                 error: status < 500 ? error.message : 'An error occurred while saving this room.'
             }));
         }
-        
+
         return;
     }
     else if (req.method === 'PUT' && url.pathname.startsWith('/rooms/')) {
+        const match = url.pathname.match(/^\/rooms\/(\d+)$/);
+
+        if (!match) {
+            res.writeHead(404, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Room not found.' }));
+            return;
+        }
+
+        const room_id = Number(match[1]);
+
+        try {
+            const body = await readJson(req);
+            const database = await sql.connect(await getSqlConfig());
+            
+            await updateRoom(database, room_id, body);
+
+            res.writeHead(204);
+            res.end();
+        } catch (error) {
+            console.error('Error updating room:', error);
+            const status = error.statusCode || 500;
+            res.writeHead(status, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({
+                error: status < 500 ? error.message : 'An error occurred while updating the room.'
+            }));
+        }
+
         return;
     }
     else if (req.method === 'PATCH' && url.pathname.startsWith('/rooms/')) {
