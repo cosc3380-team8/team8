@@ -5,7 +5,7 @@ import { listBooks, addBook, deleteBook, updateBook } from './api/books.js';
 import { listAuthors, saveAuthor, deleteAuthor, updateAuthor } from './api/author.js';
 import { listLoans } from './api/loans.js';
 import { listMedia, addMedia, updateMedia, deleteMedia} from './api/media.js';
-import { listRooms, saveRoom, deleteRoom } from './api/rooms.js';
+import { listRooms, saveRoom, updateRoom, deleteRoom } from './api/rooms.js';
 import { listReservations, saveRoomReservation, cancelRoomReservation } from './api/reservations.js';
 import { listMembers } from './api/members.js';
 import { listStaff, saveStaff, deleteStaff } from './api/staff.js';
@@ -393,9 +393,29 @@ const server = http.createServer(async (req, res) => {
         return;
     }
     else if (req.method === 'POST' && url.pathname === '/rooms') {
+        try {
+            const body = await readJson(req);
+            const database = await sql.connect(await getSqlConfig());
+
+            const room = await saveRoom(database, body);
+
+            res.writeHead(201, { 'content-type': 'application/json' });
+            res.end(JSON.stringify(room));
+        } catch (error) {
+            console.error('Error saving room:', error);
+            const status = error.statusCode || 500;
+            res.writeHead(status, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({
+                error: status < 500 ? error.message : 'An error occurred while saving this room.'
+            }));
+        }
+        
         return;
     }
-    else if (req.method === 'DELETE' && url.pathname.startsWith('/rooms')) {
+    else if (req.method === 'PUT' && url.pathname.startsWith('/rooms/')) {
+        return;
+    }
+    else if (req.method === 'PATCH' && url.pathname.startsWith('/rooms/')) {
         return;
     }
 

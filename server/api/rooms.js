@@ -27,20 +27,54 @@ export async function listRooms(database, search = '') {
 }
 
 export async function saveRoom(database, room) {
-    const { room_id, room_number, capacity } = room
+    const { 
+        room_number,
+        room_level,
+        capacity,
+        is_active
+    } = room;
 
-    try{
-        const result = await database.poolconnection
+    if (room_number.length > 10) {
+        const error = new Error('Room number is too long');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    if (room_level < 0 || room_level > 10) {
+        const error = new Error('Room level must be between 0 and 10');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    if (capacity < 1 || capacity > 100) {
+        const error = new Error('Capacity must be between 1 and 100');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    if (typeof is_active !== 'boolean') {
+        const error = new Error('Invalid is_active value');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    try {
+        const result = await database
             .request()
-            .input('room_id', sql.Int, room_id)
             .input('room_number', sql.NVarChar(10), room_number)
+            .input('room_level', sql.Int, room_level)
             .input('capacity', sql.Int, capacity)
+            .input('is_active', sql.Int, is_active)
             .query(`
-                INSERT INTO room (room_id, room_number, capacity)
-                VALUES (@room_id, @room_number, @capacity)
+                INSERT INTO room (room_number, room_level, capacity, is_active)
+                OUTPUT INSERTED.room_id AS room_id
+                VALUES (@room_number, @room_level, @capacity, @is_active)
             `);
-        return result;
-    }catch(error){
+
+            const roomId = result.recordset[0].room_id;
+
+        return { room_id: roomId };
+    } catch(error) {
         console.error(error);
         throw error;
     }
