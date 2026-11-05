@@ -1,4 +1,4 @@
-import { DBState, nextId } from './state';
+/* import { DBState, nextId } from './state';
 import type { BookCopy, Fine, Hold, ItemKind, Loan, MediaCopy } from '../types';
 import { addDays, daysBetween, fmtDate, stampFor, today } from '../utils/dates';
 
@@ -274,4 +274,15 @@ export function reserveRoom(s: DBState, userId: number, roomId: number, start: s
   const r = { reservation_id: nextId(s, 'reservations'), room_id: roomId, user_id: userId, start_time: start, end_time: end };
   s.reservations.push(r);
   return r;
-}
+} */
+
+export const LIMITS = {
+  student: { maxItems: 3, days: 20 },
+  faculty: { maxItems: 6, days: 30 },
+} as const;
+
+export const STUDENT_LIMIT_MESSAGE =
+  'Trying to borrow more books? Return one today and experience another book’s world!';
+
+export const IN_PERSON_METHODS = ['Cash', 'Card', 'Check'] as const;
+
