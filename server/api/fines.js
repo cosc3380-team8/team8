@@ -87,8 +87,8 @@ export async function listFines(database, { userId } = {}) {
 }
 
 export async function payFine(database, fineId, { method, staffId }) {
-    if (!['cash', 'card', 'check'].includes(String(method).toLowerCase())) {
-        const error = new Error('Choose Cash, Card or Check.');
+    if (!['cash', 'card'].includes(String(method).toLowerCase())) {
+        const error = new Error('Choose Cash or Card.');
         error.statusCode = 400;
         throw error;
     }
@@ -96,7 +96,7 @@ export async function payFine(database, fineId, { method, staffId }) {
     const result = await database
         .request()
         .input('p_fine_id', sql.Int, fineId)
-        .input('p_method', sql.NVarChar(5), method)
+        .input('p_method', sql.NVarChar(4), method)
         .input('p_staff_id', sql.Int, staffId ?? null)
         .execute('dbo.pay_fine');
 
