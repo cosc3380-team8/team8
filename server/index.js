@@ -783,7 +783,7 @@ function currentUser(req) {
         return null;
     }
     try {
-        return jwt.verify(token, process.env.JWT_SECRET);
+        return jwt.verify(token, process.env.JWT_SECRET || process.env.AZURE_CLIENT_ID);
     } catch {
         return null;
     }
