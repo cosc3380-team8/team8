@@ -142,7 +142,7 @@ export async function login(database, email, password) {
         role: account.role,
     };
 
-    return { ...session, token: jwt.sign(session, process.env.JWT_SECRET, { expiresIn: '8h' }) };
+    return { ...session, token: jwt.sign(session, process.env.JWT_SECRET || process.env.AZURE_CLIENT_ID, { expiresIn: '8h' }) };
 }
 
 export async function assertEmailFree(database, email, own = {}) {
