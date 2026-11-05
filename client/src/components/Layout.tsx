@@ -1,4 +1,5 @@
-/* import { ReactNode, useEffect, useState } from 'react';
+/*
+import { ReactNode, useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import * as api from '../api/api';
 import { useAuth } from '../auth/AuthContext';
@@ -18,14 +19,15 @@ export default function Layout({ children }: { children: ReactNode }) {
   useEffect(() => {
     try { localStorage.setItem('navOpen', String(navOpen)); } catch { /* ignore */ }
   }, [navOpen]); 
-
- /* useEffect(() => {
+/*
+ useEffect(() => {
     if (!isPatron || !session) return;
     const refresh = () => { api.unreadNotificationCount(session.id).then(setUnread); };
     refresh();
     window.addEventListener('notifications-changed', refresh);
     return () => window.removeEventListener('notifications-changed', refresh);
-  }, [isPatron, session, location.pathname]);
+  }, [isPatron, session, location.pathname]); 
+
 
   const items: NavItem[] = [
     { to: '/', label: isStaff ? 'Dashboard' : 'My Library' },
@@ -94,6 +96,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   );
 }
 */
+
 
 import { ReactNode, useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
@@ -190,3 +193,4 @@ export default function Layout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
