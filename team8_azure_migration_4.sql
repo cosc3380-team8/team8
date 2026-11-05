@@ -16,19 +16,7 @@ ALTER TABLE dbo.[waitlist] ADD
     [held_copy_id] int NULL CONSTRAINT [waitlist_ibfk_4] FOREIGN KEY REFERENCES dbo.[copies] ([copy_id]);
 GO
 
--- payments: allow 'check' (the desk offers Cash, Card, Check)
-DECLARE @payments_chk sysname = (
-    SELECT name FROM sys.check_constraints
-    WHERE parent_object_id = OBJECT_ID('dbo.payments') AND definition LIKE '%payment_method%');
-IF @payments_chk IS NOT NULL
-    EXEC('ALTER TABLE dbo.[payments] DROP CONSTRAINT ' + @payments_chk);
-GO
-
-ALTER TABLE dbo.[payments] ALTER COLUMN [payment_method] nvarchar(5) NOT NULL;
-ALTER TABLE dbo.[payments] ADD CONSTRAINT [payments_chk_method]
-    CHECK ([payment_method] IN (N'cash', N'card', N'check'));
-GO
-
+    
 -- the app says faculty get 30 days; the database had 25. existing loans keep their due dates.
 UPDATE dbo.[borrow_policy] SET [loan_days] = 30 WHERE [is_faculty] = 1;
 GO
@@ -225,7 +213,7 @@ GO
 
 CREATE OR ALTER PROCEDURE dbo.pay_fine
     @p_fine_id int,
-    @p_method nvarchar(5),
+    @p_method nvarchar(4),
     @p_staff_id int
 AS
 BEGIN
