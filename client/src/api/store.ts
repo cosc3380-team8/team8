@@ -1,6 +1,6 @@
 import type { DBState } from './state';
 import { buildSeed } from './seed';
-
+/*
 const KEY = 'library_db_v8';
 
 export function loadState(): DBState {
@@ -22,3 +22,4 @@ export function saveState(s: DBState) {
 export function resetState() {
   localStorage.removeItem(KEY);
 }
+*/
