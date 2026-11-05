@@ -1,9 +1,9 @@
-/* import { DBState, emptyState, nextId } from './state';
+import { DBState, emptyState, nextId } from './state';
 import { addDays, today } from '../utils/dates';
 import { LIMITS, checkout, log, payFine, placeHold, returnLoan } from './rules';
 import type { ItemKind } from '../types';
 
-export function buildSeed(): DBState {
+/* export function buildSeed(): DBState {
   const s = emptyState();
   const t = today();
   const ago = (n: number) => addDays(t, -n);
@@ -123,3 +123,4 @@ export function buildSeed(): DBState {
   log(s, 'seed', 'all tables', 'Demo data loaded.');
   return s;
 }
+*/
