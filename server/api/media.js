@@ -17,7 +17,8 @@ export async function listMedia(database, search = '') {
             SELECT
                 m.media_id,
                 m.title,
-                m.media_type,
+                m.is_active,
+                m.media_type
                 (
                     SELECT COUNT(*)
                     FROM copies AS c
