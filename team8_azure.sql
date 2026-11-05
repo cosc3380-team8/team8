@@ -1,4 +1,7 @@
 -- Re-running this file deletes every table and all data.
+-- Full rebuild order: team8_azure.sql, team8_azure_seed.sql, team8_demo_accounts.sql, then
+-- team8_azure_migration.sql, _migration_2.sql, _migration_3.sql, team8_azure_procedures.sql, team8_azure_migration_4.sql.
+-- The seed goes first so its loans use the original loan days and its rows do not fire audit/notification inserts.
 SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 SET ANSI_PADDING ON;
@@ -8,9 +11,10 @@ SET CONCAT_NULL_YIELDS_NULL ON;
 SET NUMERIC_ROUNDABORT OFF;
 GO
 
-DROP PROCEDURE IF EXISTS dbo.save_room_reservation;
+DROP PROCEDURE IF EXISTS dbo.save_room_reservation, dbo.checkout_item, dbo.return_loan, dbo.pay_fine,
+    dbo.promote_next_hold, dbo.release_hold, dbo.expire_holds;
 DROP VIEW IF EXISTS dbo.fine_status;
-DROP TABLE IF EXISTS dbo.[receipts], dbo.[payments], dbo.[fine], dbo.[waitlist], dbo.[loan],
+DROP TABLE IF EXISTS dbo.[notification], dbo.[audit_log], dbo.[receipts], dbo.[payments], dbo.[fine], dbo.[waitlist], dbo.[loan],
     dbo.[room_reservations], dbo.[copies], dbo.[book_author], dbo.[room], dbo.[media],
     dbo.[book], dbo.[author], dbo.[staff], dbo.[user], dbo.[borrow_policy];
 GO
