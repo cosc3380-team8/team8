@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+/* import { FormEvent, useState } from 'react';
 import * as api from '../api/api';
 import { QUERIES, runQuery } from '../api/analytics';
 import { Alert, Card, DataTable, PageHeader, useLoad } from '../components/ui';
@@ -81,3 +81,35 @@ export default function QueriesPage() {
     </>
   );
 }
+*/
+
+import { FormEvent, useState } from 'react';
+import * as api from '../api/api';
+import { QUERIES, runQuery } from '../api/analytics';
+import { Alert, Card, DataTable, PageHeader, useLoad } from '../components/ui';
+import type { TableResult } from '../types';
+
+export default function QueriesPage() {
+  const [selected, setSelected] = useState(QUERIES[0].id);
+  const [params, setParams] = useState<Record<string, string>>({});
+  const [result, setResult] = useState<TableResult | null>(null);
+  const [error, setError] = useState('');
+  const [showSql, setShowSql] = useState(true);
+  const members = useLoad(api.listMembers);
+  const books = useLoad(api.listBooks);
+  const media = useLoad(api.listMedia);
+
+  const def = QUERIES.find((q) => q.id === selected)!;
+
+  const pick = (id: string) => { setSelected(id); setParams({}); setResult(null); setError(''); };
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      setResult(await runQuery(selected, params));
+      setError('');
+    } catch (err) {
+      setResult(null);
+      setError((err as Error).message);
+    }
+  };
