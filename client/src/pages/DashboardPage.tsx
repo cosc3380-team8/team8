@@ -92,7 +92,7 @@ function PatronDashboard() {
           )}
           {unpaid.length > 0 && (
             <Alert kind="warning">
-              You owe {money(unpaid.reduce((a, f) => a + f.amount, 0))} in fines. Fines are paid in person at the front desk (cash, card or check), and you will get a receipt.
+              You owe {money(unpaid.reduce((a, f) => a + f.amount, 0))} in fines. Fines are paid in person at the front desk (cash or card), and you will get a receipt.
             </Alert>
           )}
           {atLimit && <Alert kind="info">{role === 'student' ? STUDENT_LIMIT_MESSAGE : `You have reached the faculty limit of ${limit.maxItems} items.`}</Alert>}
