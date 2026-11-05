@@ -2,7 +2,7 @@ import type {
   Author, AuditEntry, Book, BookAuthor, BookCopy, Fine, Hold, Loan, Media, MediaCopy,
   Member, Notification, Payment, Receipt, Room, RoomReservation, Staff,
 } from '../types';
-
+/*
 export interface DBState {
   members: Member[];
   staff: Staff[];
@@ -36,3 +36,4 @@ export function nextId(s: DBState, table: string): number {
   s.seq[table] = (s.seq[table] ?? 0) + 1;
   return s.seq[table];
 }
+*/
