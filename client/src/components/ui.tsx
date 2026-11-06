@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useEffect, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 export function PageHeader({ title, subtitle, actions, titleAside }: { title: string; subtitle?: string; actions?: ReactNode; titleAside?: ReactNode }) {
   return (
@@ -31,7 +31,8 @@ export interface Column<T> {
 }
 
 export function DataTable<T>({ columns, rows, empty = 'Nothing to show.' }: { columns: Column<T>[]; rows: T[]; empty?: string }) {
-  if (rows.length === 0) return <p className="muted empty">{empty}</p>;
+  const { pending } = useLoadStatus();
+  if (rows.length === 0) return <p className="muted empty">{pending > 0 ? 'Loading…' : empty}</p>;
   return (
     <div className="table-wrap">
       <table>
@@ -93,14 +94,44 @@ export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { id: 
   );
 }
 
+// Shared load state: tables say "Loading…" instead of "Nothing to show" while data is on the way,
+// and Layout shows load errors (pages used to stay empty with no message).
+let pendingLoads = 0;
+let nextLoadId = 0;
+const loadErrors = new Map<number, string>();
+const loadListeners = new Set<() => void>();
+let loadSnapshot = { pending: 0, errors: [] as string[] };
+function emitLoad() {
+  loadSnapshot = { pending: pendingLoads, errors: [...new Set(loadErrors.values())] };
+  loadListeners.forEach((l) => l());
+}
+function subscribeLoad(l: () => void) {
+  loadListeners.add(l);
+  return () => { loadListeners.delete(l); };
+}
+export const useLoadStatus = () => useSyncExternalStore(subscribeLoad, () => loadSnapshot);
+
+export function LoadErrors() {
+  const { errors } = useLoadStatus();
+  if (errors.length === 0) return null;
+  return <Alert kind="error">Some data could not load: {errors.map((e) => e.replace(/\.$/, '')).join(' · ')}. Try refreshing the page.</Alert>;
+}
+
 export function useLoad<T>(fn: () => Promise<T>, deps: unknown[] = []) {
   const [data, setData] = useState<T | undefined>();
   const [error, setError] = useState('');
+  const id = useRef(0);
+  if (id.current === 0) id.current = ++nextLoadId;
 
   const load = useCallback(() => {
-    fn().then((d) => { setData(d); setError(''); }).catch((e: Error) => setError(e.message));
+    pendingLoads++; emitLoad();
+    fn()
+      .then((d) => { setData(d); setError(''); loadErrors.delete(id.current); })
+      .catch((e: Error) => { setError(e.message); loadErrors.set(id.current, e.message); })
+      .finally(() => { pendingLoads--; emitLoad(); });
   }, deps);
   useEffect(load, [load]);
+  useEffect(() => () => { loadErrors.delete(id.current); emitLoad(); }, []);
   return { data, error, reload: load };
 }
 

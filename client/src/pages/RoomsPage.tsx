@@ -7,7 +7,8 @@ import { addDays, fmtDateTime, today } from '../utils/dates';
 export default function RoomsPage() {
   const { session, isStaff } = useAuth();
   const rooms = useLoad(api.listRooms);
-  const members = useLoad(api.listMembers);
+  // only staff pick a member, and only staff may read the member list
+  const members = useLoad(() => (isStaff ? api.listMembers() : Promise.resolve([])), [isStaff]);
   const res = useLoad(() => api.listReservations(isStaff ? undefined : session!.id), [isStaff, session?.id]);
   const { run, banner } = useAction();
 

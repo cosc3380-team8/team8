@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import * as api from '../api/api';
 import { useAuth } from '../auth/AuthContext';
-import { Badge } from './ui';
+import { Badge, LoadErrors } from './ui';
 
 interface NavItem { to: string; label: string; count?: number }
 
@@ -69,7 +69,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         aria-label={navOpen ? 'Close menu' : 'Open menu'} aria-expanded={navOpen} aria-controls="sidebar">
         <span /><span /><span />
       </button>
-      <main className="content-area"><div className="content">{children}</div></main>
+      <main className="content-area"><div className="content"><LoadErrors />{children}</div></main>
       <aside className="sidebar" id="sidebar" hidden={!navOpen}>
         <div className="brand">
           <div className="mascot-box"><img src="/mascot.png" alt="Uma's Library cougar mascot" /></div>

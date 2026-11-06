@@ -59,6 +59,12 @@ export async function listMembers(database) {
 
 export async function saveMember(database, member) {
     const session = await createMember(database, member);
+    // the Add form has an Active box; new accounts are active unless it was unticked
+    if (member.is_active === false) {
+        await database.request()
+            .input('userId', sql.Int, session.id)
+            .query(`UPDATE [user] SET is_active = 0 WHERE user_id = @userId`);
+    }
     return { user_id: session.id };
 }
 
