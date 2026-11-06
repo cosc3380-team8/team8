@@ -51,6 +51,8 @@ export async function listFines(database, { userId } = {}) {
                 f.loan_id,
                 f.amount,
                 CASE WHEN fs.paid_status = 1 THEN 'paid' ELSE 'unpaid' END AS paid_status,
+                fs.total_paid,
+                f.amount - fs.total_paid AS amount_owed,
                 CONVERT(char(10), fs.paid_date, 23) AS paid_date,
                 l.user_id,
                 CONCAT(u.first_name, ' ', u.last_name) AS member_name,

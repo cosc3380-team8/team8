@@ -172,6 +172,7 @@ export default function CirculationPage() {
   const [item, setItem] = useState('');
   const [method, setMethod] = useState('Cash');
   const [isbn, setIsbn] = useState('');
+  const [isbnNote, setIsbnNote] = useState('');
   const [receipt, setReceipt] = useState<ReceiptView | null>(null);
   const { session } = useAuth();
 
@@ -188,9 +189,17 @@ export default function CirculationPage() {
   // pick item by isbn
   const lookupIsbn = (value: string) => {
     setIsbn(value);
-    const digits = value.replace(/[^0-9Xx]/g, '').toUpperCase();
-    const hit = (books.data ?? []).find((b) => b.is_active && b.isbn && b.isbn === digits);
-    if (hit) setItem(`book:${hit.book_id}`);
+    const clean = (s: string) => s.replace(/[^0-9Xx]/g, '').toUpperCase();
+    const digits = clean(value);
+    if (!digits) { setIsbnNote(''); return; }
+    const hit = (books.data ?? []).find((b) => b.is_active && b.isbn && clean(b.isbn) === digits);
+    if (hit) {
+      setItem(`book:${hit.book_id}`);
+      setIsbnNote(`Found: ${hit.title}`);
+    } else {
+      setItem('');
+      setIsbnNote(digits.length >= 10 ? 'No active book has that ISBN.' : '');
+    }
   };
 
   const recordPayment = (fineId: number) => run(async () => {
@@ -212,6 +221,7 @@ export default function CirculationPage() {
           <form className="form inline" onSubmit={submitCheckout}>
             <label><span>ISBN lookup</span>
               <input value={isbn} onChange={(e) => lookupIsbn(e.target.value)} placeholder="Scan or type ISBN" inputMode="numeric" />
+              {isbnNote && <small className="muted">{isbnNote}</small>}
             </label>
             <label><span>Member</span>
               <select value={memberId} onChange={(e) => setMemberId(e.target.value)} required>
@@ -250,7 +260,7 @@ export default function CirculationPage() {
               { header: 'Status', cell: (l) => l.status === 'overdue' ? <Badge tone="red">Overdue</Badge> : l.status === 'due-soon' ? <Badge tone="amber">Due soon</Badge> : <Badge tone="green">On loan</Badge> },
               { header: '', cell: (l) => <button className="btn small primary" onClick={() => run(async () => {
                   const r = await api.doReturn(l.loan_id);
-                  if (r.fine) throw new Error(`Returned late. A fine of ${money(r.fine.amount)} was created automatically.`);
+                  if (r.fine) return { warning: `“${l.title}” returned late. A fine of ${money(r.fine.amount)} was created automatically.` };
                 }, `“${l.title}” returned.`, reloadAll)}>Return</button> },
             ]} />
         </Card>
@@ -258,7 +268,7 @@ export default function CirculationPage() {
 
       {tab === 'holds' && (
         <Card title="Active holds" actions={
-          <button className="btn small" onClick={() => run(async () => { const n = await api.runMaintenance(); if (n === 0) throw new Error('No holds needed to expire.'); }, 'Expired holds released.', reloadAll)}>
+          <button className="btn small" onClick={() => run(async () => { const n = await api.runMaintenance(); return n === 0 ? 'No holds needed to expire.' : `${n} expired hold${n === 1 ? '' : 's'} released.`; }, 'Expired holds released.', reloadAll)}>
             Run hold-expiry job
           </button>}>
           <DataTable rows={holds.data ?? []} empty="No active holds."
@@ -287,7 +297,7 @@ export default function CirculationPage() {
               { header: 'Item', cell: (f) => f.title },
               { header: 'Due / returned', cell: (f) => `${fmtDate(f.due_date)} / ${fmtDate(f.return_date)}` },
               { header: 'Amount', cell: (f) => money(f.amount) },
-              { header: 'Status', cell: (f) => f.paid_status === 'paid' ? <Badge tone="green">Paid {fmtDate(f.paid_date)} · {f.receipt_code}</Badge> : <Badge tone="red">Unpaid</Badge> },
+              { header: 'Status', cell: (f) => f.paid_status === 'paid' ? <Badge tone="green">Paid {fmtDate(f.paid_date)} · {f.receipt_code}</Badge> : Number(f.total_paid) > 0 ? <Badge tone="amber">Partly paid · {money(f.amount_owed ?? f.amount)} left</Badge> : <Badge tone="red">Unpaid</Badge> },
               { header: '', cell: (f) => f.paid_status === 'unpaid' && <button className="btn small primary" onClick={() => recordPayment(f.fine_id)}>Record payment &amp; print receipt</button> },
             ]} />
         </Card>

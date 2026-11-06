@@ -1,7 +1,7 @@
 import { FormEvent, useState } from 'react';
 import * as api from '../api/api';
 import { useAuth } from '../auth/AuthContext';
-import { Card, DataTable, PageHeader, useAction, useLoad } from '../components/ui';
+import { Badge, Card, DataTable, PageHeader, useAction, useLoad } from '../components/ui';
 import { addDays, fmtDateTime, today } from '../utils/dates';
 
 export default function RoomsPage() {
@@ -62,18 +62,19 @@ export default function RoomsPage() {
             { header: 'Member', cell: (r) => r.member_name },
             { header: 'From', cell: (r) => fmtDateTime(r.start_time) },
             { header: 'To', cell: (r) => fmtDateTime(r.end_time) },
-            { header: '', cell: (r) => <button className="btn small danger" onClick={() => run(() => api.cancelReservation(r.reservation_id), 'Reservation cancelled.', res.reload)}>Cancel</button> },
+            { header: '', cell: (r) => <button className="btn small danger" onClick={() => { if (window.confirm(`Cancel the booking for room ${r.room_number}?`)) run(() => api.cancelReservation(r.reservation_id), 'Reservation cancelled.', res.reload); }}>Cancel</button> },
           ]} />
       </Card>
       <Card title={`Archived reservations (${archived.length})`}>
         <details>
-          <summary>Show past reservations</summary>
+          <summary>Show past and cancelled reservations</summary>
           <DataTable rows={archived} empty="No past reservations."
             columns={[
               { header: 'Room', cell: (r) => r.room_number },
               { header: 'Member', cell: (r) => r.member_name },
               { header: 'From', cell: (r) => fmtDateTime(r.start_time) },
               { header: 'To', cell: (r) => fmtDateTime(r.end_time) },
+              { header: 'Status', cell: (r) => r.is_active === false ? <Badge tone="red">Cancelled</Badge> : <Badge tone="gray">Completed</Badge> },
             ]} />
         </details>
       </Card>

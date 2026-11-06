@@ -125,3 +125,107 @@ LEFT JOIN dbo.loan AS l
 GROUP BY u.is_faculty
 ORDER BY [Role] DESC;
 GO
+
+-- hold queue for one item (Queries tab). Set one of the two ids, leave the other NULL.
+DECLARE @book_id int = 1;
+DECLARE @media_id int = NULL;
+
+SELECT ROW_NUMBER() OVER (ORDER BY CASE w.status WHEN 'ready' THEN 0 ELSE 1 END, w.request_time, w.waitlist_id) AS [Position],
+       u.first_name + N' ' + u.last_name AS [Member],
+       CONVERT(char(10), w.request_time, 23) AS [Requested],
+       w.status AS [Status],
+       CONVERT(char(10), w.expiration_date, 23) AS [Pick up by]
+FROM dbo.waitlist AS w
+JOIN dbo.[user] AS u ON u.user_id = w.user_id
+WHERE w.status IN ('waiting', 'ready')
+  AND ((@book_id IS NOT NULL AND w.book_id = @book_id)
+    OR (@media_id IS NOT NULL AND w.media_id = @media_id))
+ORDER BY CASE w.status WHEN 'ready' THEN 0 ELSE 1 END, w.request_time, w.waitlist_id;
+GO
+
+-- personalized loan history (Reports tab). NULL filter = no filter.
+DECLARE @from date = '2026-06-01';
+DECLARE @to date = '2026-12-31';
+DECLARE @user_id int = NULL;
+DECLARE @role nvarchar(10) = NULL;      -- 'student', 'faculty' or NULL
+DECLARE @author_id int = NULL;
+DECLARE @keyword nvarchar(100) = NULL;
+DECLARE @kind nvarchar(10) = NULL;      -- 'book', 'media' or NULL
+DECLARE @today date = CAST(GETDATE() AS date);
+
+SELECT l.loan_id AS [Loan #],
+       u.first_name + N' ' + u.last_name AS [Member],
+       COALESCE(b.title, m.title) AS [Title],
+       b.isbn AS [ISBN],
+       l.borrow_date AS [Borrowed],
+       l.due_date AS [Due],
+       l.return_date AS [Returned],
+       CASE WHEN l.return_date IS NULL AND l.due_date < @today THEN N'Overdue'
+            WHEN l.return_date IS NULL THEN N'On loan'
+            WHEN l.return_date > l.due_date THEN N'Returned late'
+            ELSE N'Returned on time' END AS [Outcome],
+       fn.amount AS [Fine]
+FROM dbo.loan AS l
+JOIN dbo.[user] AS u ON u.user_id = l.user_id
+JOIN dbo.copies AS c ON c.copy_id = l.copy_id
+LEFT JOIN dbo.book AS b ON b.book_id = c.book_id
+LEFT JOIN dbo.media AS m ON m.media_id = c.media_id
+LEFT JOIN dbo.fine AS fn ON fn.loan_id = l.loan_id
+WHERE l.borrow_date BETWEEN @from AND @to
+  AND (@user_id IS NULL OR u.user_id = @user_id)
+  AND (@role IS NULL OR u.is_faculty = CASE WHEN @role = 'faculty' THEN 1 ELSE 0 END)
+  AND (@author_id IS NULL OR EXISTS (SELECT 1 FROM dbo.book_author AS ba
+                                     WHERE ba.book_id = c.book_id AND ba.author_id = @author_id))
+  AND (@keyword IS NULL OR COALESCE(b.title, m.title) LIKE N'%' + @keyword + N'%')
+  AND (@kind IS NULL OR (@kind = 'book' AND c.book_id IS NOT NULL)
+                     OR (@kind = 'media' AND c.media_id IS NOT NULL))
+ORDER BY l.borrow_date DESC, l.loan_id DESC;
+GO
+
+-- borrowing by author (Reports tab). Books only.
+DECLARE @from date = '2026-06-01';
+DECLARE @to date = '2026-12-31';
+DECLARE @user_id int = NULL;
+DECLARE @role nvarchar(10) = NULL;
+DECLARE @keyword nvarchar(100) = NULL;
+
+SELECT a.first_name + N' ' + a.last_name AS [Author],
+       COUNT(*) AS [Loans],
+       COUNT(DISTINCT b.book_id) AS [Titles borrowed]
+FROM dbo.loan AS l
+JOIN dbo.[user] AS u ON u.user_id = l.user_id
+JOIN dbo.copies AS c ON c.copy_id = l.copy_id
+JOIN dbo.book AS b ON b.book_id = c.book_id
+JOIN dbo.book_author AS ba ON ba.book_id = b.book_id
+JOIN dbo.author AS a ON a.author_id = ba.author_id
+WHERE l.borrow_date BETWEEN @from AND @to
+  AND (@user_id IS NULL OR u.user_id = @user_id)
+  AND (@role IS NULL OR u.is_faculty = CASE WHEN @role = 'faculty' THEN 1 ELSE 0 END)
+  AND (@keyword IS NULL OR b.title LIKE N'%' + @keyword + N'%')
+GROUP BY a.author_id, a.first_name, a.last_name
+ORDER BY [Loans] DESC, [Author];
+GO
+
+-- inventory status (Reports tab). Active titles and active copies only.
+DECLARE @author_id int = NULL;
+DECLARE @keyword nvarchar(100) = NULL;
+DECLARE @kind nvarchar(10) = NULL;
+
+SELECT COALESCE(b.title, m.title) AS [Title],
+       CASE WHEN c.book_id IS NOT NULL THEN N'Book' ELSE m.media_type END AS [Type],
+       COUNT(*) AS [Total copies],
+       SUM(CASE WHEN c.is_available = 1 THEN 1 ELSE 0 END) AS [Available],
+       SUM(CASE WHEN c.is_available = 0 THEN 1 ELSE 0 END) AS [On loan]
+FROM dbo.copies AS c
+LEFT JOIN dbo.book AS b ON b.book_id = c.book_id
+LEFT JOIN dbo.media AS m ON m.media_id = c.media_id
+WHERE c.is_active = 1
+  AND COALESCE(b.is_active, m.is_active) = 1
+  AND (@author_id IS NULL OR EXISTS (SELECT 1 FROM dbo.book_author AS ba
+                                     WHERE ba.book_id = c.book_id AND ba.author_id = @author_id))
+  AND (@keyword IS NULL OR COALESCE(b.title, m.title) LIKE N'%' + @keyword + N'%')
+  AND (@kind IS NULL OR (@kind = 'book' AND c.book_id IS NOT NULL)
+                     OR (@kind = 'media' AND c.media_id IS NOT NULL))
+GROUP BY COALESCE(b.title, m.title), CASE WHEN c.book_id IS NOT NULL THEN N'Book' ELSE m.media_type END
+ORDER BY [Title];
+GO

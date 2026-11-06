@@ -415,12 +415,15 @@ export interface FineView extends Fine {
   return_date: string | null;
   payment_method: string | null;
   receipt_code: string | null;
+  total_paid?: number;
+  amount_owed?: number;
 }
 
 export interface ReservationView extends RoomReservation {
   room_number: string;
   member_name: string;
   archived: boolean;
+  is_active?: boolean;
 }
 
 export interface ReceiptView {

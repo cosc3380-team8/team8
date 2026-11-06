@@ -109,6 +109,7 @@ export async function listReservations(database, user_id) {
                 rr.room_id,
                 rr.start_time,
                 rr.end_time,
+                rr.is_active,
                 r.room_number AS room_number,
                 CONCAT(u.first_name, ' ', u.last_name) AS member_name,
                 CASE

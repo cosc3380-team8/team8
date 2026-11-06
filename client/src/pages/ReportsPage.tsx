@@ -18,7 +18,7 @@ export default function ReportsPage() {
   const [data, setData] = useState<ReportResult | null>(null);
   const [error, setError] = useState('');
   const members = useLoad(api.listMembers);
-  const authors = useLoad(api.listAuthors);
+  const authors = useLoad(api.listReportAuthors);
   const def = REPORTS.find((r) => r.id === id)!;
   const has = (k: keyof ReportFilters) => def.filters.includes(k);
   const set = (k: keyof ReportFilters, v: string) => setFilters((f) => ({ ...f, [k]: v || undefined }));

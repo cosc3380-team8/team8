@@ -68,6 +68,7 @@ import { useState } from 'react';
 import * as api from '../api/api';
 import { useAuth } from '../auth/AuthContext';
 import { Badge, Card, DataTable, PageHeader, Tabs, useAction, useLoad } from '../components/ui';
+import { fmtDate } from '../utils/dates';
 
 export default function CatalogPage() {
   const { session, isPatron } = useAuth();
@@ -75,18 +76,29 @@ export default function CatalogPage() {
   const [q, setQ] = useState('');
   const books = useLoad(api.listBooks);
   const media = useLoad(api.listMedia);
+  const uid = isPatron && session ? session.id : null;
+  const myHolds = useLoad(() => (uid ? api.listHolds({ userId: uid, activeOnly: true }) : Promise.resolve([])), [uid]);
   const { run, banner } = useAction();
-  const reload = () => { books.reload(); media.reload(); };
+  const reload = () => { books.reload(); media.reload(); myHolds.reload(); };
+  const activeHolds = (myHolds.data ?? []).filter((h) => h.status === 'waiting' || h.status === 'ready');
+  const atLimit = activeHolds.length >= 3;
   const needle = q.trim().toLowerCase();
   const isbnNeedle = q.replace(/[^0-9Xx]/g, '').toUpperCase();
 
-  const holdButton = (kind: 'book' | 'media', id: number, available: number) =>
-    isPatron && (
+  const holdButton = (kind: 'book' | 'media', id: number, available: number) => {
+    if (!isPatron) return null;
+    const mine = activeHolds.find((h) => (kind === 'book' ? h.book_id : h.media_id) === id);
+    if (mine) return mine.status === 'ready'
+      ? <Badge tone="green">Ready · pick up by {fmtDate(mine.expiration_date)}</Badge>
+      : <Badge tone="amber">On hold · queue #{mine.queue_position ?? '?'}</Badge>;
+    if (atLimit) return <span className="muted">Hold limit (3) reached</span>;
+    return (
       <button className="btn small" onClick={() => run(() => api.doPlaceHold(session!.id, kind, id),
         available > 0 ? 'Hold placed — it is ready for pickup for 3 days.' : 'You are in the hold queue.', reload)}>
         {available > 0 ? 'Hold for pickup' : 'Join hold queue'}
       </button>
     );
+  };
 
   const avail = (a: number, t: number) => (a > 0 ? <Badge tone="green">{a} of {t} available</Badge> : <Badge tone="red">All {t} out</Badge>);
 

@@ -292,6 +292,7 @@ export async function listBooks(database, search = '') {
                 SELECT COUNT(*)
                 FROM copies AS c
                 WHERE c.book_id = b.book_id
+                    AND c.is_active = 1
                 ) AS total_copies,
                 (
                 SELECT COUNT(*)
@@ -396,6 +397,21 @@ export async function updateBook(database, book) {
     try {
         await transaction.begin();
 
+        // same rule as the Archive button: no archiving while a copy is on loan or held
+        if (!is_active) {
+            const out = await new sql.Request(transaction)
+                .input('book_id', sql.Int, book_id)
+                .query(`
+                    SELECT COUNT(*) AS count
+                    FROM copies
+                    WHERE book_id = @book_id AND is_active = 1 AND is_available = 0
+                      AND EXISTS (SELECT 1 FROM book WHERE book_id = @book_id AND is_active = 1)
+                `);
+            if (out.recordset[0].count > 0) {
+                throw Object.assign(new Error('Cannot archive: copies are on loan or held.'), { statusCode: 400 });
+            }
+        }
+
         // Check if book with the same ISBN already exists
         const sameBook = await new sql.Request(transaction)
             .input('isbn', sql.NVarChar, isbn)
@@ -484,6 +500,15 @@ export async function updateBook(database, book) {
                         INSERT INTO copies (book_id, is_available, is_active)
                         VALUES (@book_id, @is_available, @is_active)
                     `);
+            }
+        }
+
+        // new copies go to waiting holds first (one hold per copy)
+        if (addCopies > 0 && is_active) {
+            for (let i = 0; i < addCopies; i++) {
+                await new sql.Request(transaction)
+                    .input('book_id', sql.Int, book_id)
+                    .query(`EXEC dbo.promote_next_hold @book_id, NULL`);
             }
         }
 

@@ -74,8 +74,6 @@ export default function QueriesPage() {
                 columns={result.columns.map((c, i) => ({ header: c, cell: (r: (string | number)[]) => r[i] }))} />
             </>
           )}
-          <button className="link" onClick={() => setShowSql(!showSql)}>{showSql ? 'Hide' : 'Show'} SQL</button>
-          {showSql && <pre className="sql">{def.sql}</pre>}
         </Card>
       </div>
     </>
@@ -94,7 +92,6 @@ export default function QueriesPage() {
   const [params, setParams] = useState<Record<string, string>>({});
   const [result, setResult] = useState<TableResult | null>(null);
   const [error, setError] = useState('');
-  const [showSql, setShowSql] = useState(true);
   const members = useLoad(api.listMembers);
   const books = useLoad(api.listBooks);
   const media = useLoad(api.listMedia);
@@ -159,8 +156,6 @@ export default function QueriesPage() {
                 columns={result.columns.map((c, i) => ({ header: c, cell: (r: (string | number)[]) => r[i] }))} />
             </>
           )}
-          <button className="link" onClick={() => setShowSql(!showSql)}>{showSql ? 'Hide' : 'Show'} SQL</button>
-          {showSql && <pre className="sql">{def.sql}</pre>}
         </Card>
       </div>
     </>

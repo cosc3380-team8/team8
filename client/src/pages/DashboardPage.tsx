@@ -92,7 +92,7 @@ function PatronDashboard() {
           )}
           {unpaid.length > 0 && (
             <Alert kind="warning">
-              You owe {money(unpaid.reduce((a, f) => a + f.amount, 0))} in fines. Fines are paid in person at the front desk (cash or card), and you will get a receipt.
+              You owe {money(unpaid.reduce((a, f) => a + (f.amount_owed ?? f.amount), 0))} in fines. Fines are paid in person at the front desk (cash or card), and you will get a receipt.
             </Alert>
           )}
           {atLimit && <Alert kind="info">{role === 'student' ? STUDENT_LIMIT_MESSAGE : `You have reached the faculty limit of ${limit.maxItems} items.`}</Alert>}
@@ -126,7 +126,7 @@ function PatronDashboard() {
             { header: 'Item', cell: (f) => f.title },
             { header: 'Returned', cell: (f) => fmtDate(f.return_date) },
             { header: 'Amount', cell: (f) => money(f.amount) },
-            { header: 'Status', cell: (f) => f.paid_status === 'paid' ? <Badge tone="green">Paid · {f.receipt_code}</Badge> : <Badge tone="red">Unpaid · pay at the desk</Badge> },
+            { header: 'Status', cell: (f) => f.paid_status === 'paid' ? <Badge tone="green">Paid · {f.receipt_code}</Badge> : Number(f.total_paid) > 0 ? <Badge tone="amber">Partly paid · {money(f.amount_owed ?? f.amount)} left</Badge> : <Badge tone="red">Unpaid · pay at the desk</Badge> },
             { header: '', cell: (f) => f.paid_status === 'paid' && <Link className="btn small" to="/receipts">View receipt</Link> },
           ]} />
       </Card>

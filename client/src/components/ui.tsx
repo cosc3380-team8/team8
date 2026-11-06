@@ -105,11 +105,13 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[] = []) {
 }
 
 export function useAction() {
-  const [msg, setMsg] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+  const [msg, setMsg] = useState<{ kind: 'success' | 'error' | 'warning'; text: string } | null>(null);
+  // fn can return a string to replace the success text, or { warning } for an amber note
   const run = async (fn: () => Promise<unknown>, success: string, after?: () => void) => {
     try {
-      await fn();
-      setMsg({ kind: 'success', text: success });
+      const r = await fn();
+      if (r && typeof r === 'object' && 'warning' in r) setMsg({ kind: 'warning', text: String((r as { warning: string }).warning) });
+      else setMsg({ kind: 'success', text: typeof r === 'string' ? r : success });
       after?.();
     } catch (e) {
       setMsg({ kind: 'error', text: (e as Error).message });

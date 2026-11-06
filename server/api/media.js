@@ -247,6 +247,7 @@ export async function listMedia(database, search = '') {
                     SELECT COUNT(*)
                     FROM copies AS c
                     WHERE c.media_id = m.media_id
+                        AND c.is_active = 1
                 ) AS total_copies,
                 (
                     SELECT COUNT(*)
@@ -381,6 +382,21 @@ export async function updateMedia(database, media_id, media) {
     try {
         await transaction.begin();
 
+        // same rule as the Archive button: no archiving while a copy is on loan or held
+        if (!is_active) {
+            const out = await new sql.Request(transaction)
+                .input('media_id', sql.Int, media_id)
+                .query(`
+                    SELECT COUNT(*) AS count
+                    FROM copies
+                    WHERE media_id = @media_id AND is_active = 1 AND is_available = 0
+                      AND EXISTS (SELECT 1 FROM media WHERE media_id = @media_id AND is_active = 1)
+                `);
+            if (out.recordset[0].count > 0) {
+                throw Object.assign(new Error('Cannot archive: copies are on loan or held.'), { statusCode: 400 });
+            }
+        }
+
         const result = await new sql.Request(transaction)
             .input('media_id', sql.Int, media_id)
             .input('title', sql.NVarChar(150), title)
@@ -411,6 +427,15 @@ export async function updateMedia(database, media_id, media) {
                         INSERT INTO copies (media_id, is_available, is_active)
                         VALUES (@media_id, @is_available, @is_active)
                     `);
+            }
+        }
+
+        // new copies go to waiting holds first (one hold per copy)
+        if (addCopies > 0 && is_active) {
+            for (let i = 0; i < addCopies; i++) {
+                await new sql.Request(transaction)
+                    .input('media_id', sql.Int, media_id)
+                    .query(`EXEC dbo.promote_next_hold NULL, @media_id`);
             }
         }
 

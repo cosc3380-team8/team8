@@ -636,6 +636,7 @@ export const login = (email: string, password: string): Promise<Session> =>
 export const listBooks = () => request<BookView[]>('/books');
 export const listMedia = () => request<MediaView[]>('/media');
 export const listAuthors = () => request<Author[]>('/authors');
+export const listReportAuthors = () => request<Author[]>('/report-authors');
 export const listRooms = () => request<Room[]>('/rooms');
 export const listMembers = () => request<Member[]>('/members');
 export const listStaff = () => request<Staff[]>('/staff');
