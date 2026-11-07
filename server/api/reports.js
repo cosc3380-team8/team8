@@ -447,7 +447,7 @@ export async function runReport(database, id, params) {
 import sql from 'mssql'
 
 const DATE_COLUMNS = new Set(['Borrowed', 'Due', 'Returned', 'Requested', 'Pick up by']);
-const MONEY_COLUMNS = new Set(['Projected fine', 'Fine', 'Assessed', 'Collected', 'Outstanding']);
+const MONEY_COLUMNS = new Set(['Projected fine', 'Fine', 'Amount paid', 'Assessed', 'Collected', 'Outstanding']);
 
 // same date and money formats as the rest of the app
 function formatCell(column, value) {
@@ -465,6 +465,191 @@ function toTable(recordset) {
     const columns = Object.keys(recordset.columns);
     const rows = recordset.map((row) => columns.map((column) => formatCell(column, row[column])));
     return { columns, rows };
+}
+
+// detail rows under a report, with the tables they were read from
+function toDetails(recordset, source, keep = () => true) {
+    const columns = Object.keys(recordset.columns);
+    const rows = recordset.filter(keep).map((row) => columns.map((column) => formatCell(column, row[column])));
+    return { columns, rows, source };
+}
+
+// stored in UTC, shown in Houston time
+const localTime = (column) =>
+    `FORMAT(${column} AT TIME ZONE 'UTC' AT TIME ZONE 'Central Standard Time', 'MM-dd-yyyy hh:mm tt')`;
+
+// loans only store a date, so the exact time comes from the audit log entry the trigger wrote
+const auditTime = (trigger) => `(
+                    SELECT TOP 1 ${localTime('al.logged_at')}
+                    FROM audit_log AS al
+                    WHERE al.trigger_name = '${trigger}'
+                      AND al.message LIKE CONCAT('Loan ', l.loan_id, ':%')
+                    ORDER BY al.log_id DESC
+                )`;
+
+const MEMBER_COLUMNS = `
+                       u.user_id AS [Member ID],
+                       u.first_name + N' ' + u.last_name AS [Member],
+                       u.email AS [Email],
+                       CASE WHEN u.is_faculty = 1 THEN N'Faculty' ELSE N'Student' END AS [Role]`;
+
+const LOAN_COLUMNS = `
+                       l.loan_id AS [Loan #],
+                       l.copy_id AS [Copy #],
+                       COALESCE(b.title, m.title) AS [Title],
+                       CASE WHEN c.book_id IS NOT NULL THEN N'Book' WHEN c.media_id IS NOT NULL THEN N'Media' END AS [Type],
+                       b.isbn AS [ISBN],
+                       CONVERT(char(10), l.borrow_date, 23) AS [Borrowed],
+                       ${auditTime('trg_loan_checkout')} AS [Checked out at],
+                       CONVERT(char(10), l.due_date, 23) AS [Due],
+                       CONVERT(char(10), l.return_date, 23) AS [Returned],
+                       ${auditTime('trg_loan_return')} AS [Returned at],
+                       CASE WHEN l.loan_id IS NULL THEN NULL
+                            WHEN l.return_date IS NULL AND l.due_date < CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'Central Standard Time' AS date) THEN N'Overdue'
+                            WHEN l.return_date IS NULL THEN N'On loan'
+                            WHEN l.return_date > l.due_date THEN N'Returned late'
+                            ELSE N'Returned on time' END AS [Outcome],
+                       fn.amount AS [Fine]`;
+
+const LOAN_SOURCE = 'loan, user, copies, book, media, fine, audit_log';
+
+// every loan behind the report, using the same filters as its summary
+async function loanDetails(database, f, keep) {
+    const result = await withFilters(database.request(), f)
+        .query(`
+                SELECT${LOAN_COLUMNS},${MEMBER_COLUMNS}
+                FROM loan AS l
+                JOIN [user] AS u ON u.user_id = l.user_id
+                JOIN copies AS c ON c.copy_id = l.copy_id
+                LEFT JOIN book AS b ON b.book_id = c.book_id
+                LEFT JOIN media AS m ON m.media_id = c.media_id
+                LEFT JOIN fine AS fn ON fn.loan_id = l.loan_id
+                WHERE l.borrow_date BETWEEN CAST(@from AS date) AND CAST(@to AS date)` + MEMBER_FILTERS + ITEM_FILTERS + `
+                ORDER BY l.borrow_date DESC, l.loan_id DESC
+            `);
+
+    return toDetails(result.recordset, LOAN_SOURCE, keep);
+}
+
+// one row per payment, so partly paid fines show each payment
+async function fineDetails(database, f) {
+    const result = await withFilters(database.request(), f)
+        .query(`
+                SELECT fs.fine_id AS [Fine #],
+                       fs.amount AS [Fine],
+                       DATEDIFF(day, l.due_date, l.return_date) AS [Days late],
+                       CASE WHEN fs.paid_status = 1 THEN N'Paid'
+                            WHEN fs.total_paid > 0 THEN N'Partly paid'
+                            ELSE N'Unpaid' END AS [Status],
+                       p.payment_id AS [Payment #],
+                       p.amount_paid AS [Amount paid],
+                       ${localTime('p.payment_date')} AS [Paid at],
+                       p.payment_method AS [Method],
+                       s.first_name + N' ' + s.last_name AS [Received by],
+                       r.transaction_code AS [Receipt],
+                       ${localTime('r.issue_date')} AS [Receipt issued at],
+                       l.loan_id AS [Loan #],
+                       l.copy_id AS [Copy #],
+                       COALESCE(b.title, m.title) AS [Title],
+                       CASE WHEN c.book_id IS NOT NULL THEN N'Book' ELSE N'Media' END AS [Type],
+                       CONVERT(char(10), l.due_date, 23) AS [Due],
+                       CONVERT(char(10), l.return_date, 23) AS [Returned],${MEMBER_COLUMNS}
+                FROM fine_status AS fs
+                JOIN loan AS l ON l.loan_id = fs.loan_id
+                JOIN [user] AS u ON u.user_id = l.user_id
+                JOIN copies AS c ON c.copy_id = l.copy_id
+                LEFT JOIN book AS b ON b.book_id = c.book_id
+                LEFT JOIN media AS m ON m.media_id = c.media_id
+                LEFT JOIN payments AS p ON p.fine_id = fs.fine_id
+                LEFT JOIN receipts AS r ON r.payment_id = p.payment_id
+                LEFT JOIN staff AS s ON s.staff_id = p.staff_id
+                WHERE l.return_date BETWEEN CAST(@from AS date) AND CAST(@to AS date)` + MEMBER_FILTERS + ITEM_FILTERS + `
+                ORDER BY l.return_date DESC, fs.fine_id DESC, p.payment_id
+            `);
+
+    return toDetails(result.recordset, 'fine_status, fine, payments, receipts, staff, loan, user, copies, book, media');
+}
+
+// members with no matching loans stay listed because the summary counts them
+async function activityDetails(database, f) {
+    const result = await withFilters(database.request(), f)
+        .query(`
+                SELECT${MEMBER_COLUMNS},${LOAN_COLUMNS}
+                FROM [user] AS u
+                LEFT JOIN (
+                    SELECT l.loan_id, l.user_id, l.copy_id, l.borrow_date, l.due_date, l.return_date
+                    FROM loan AS l
+                    JOIN copies AS c ON c.copy_id = l.copy_id
+                    LEFT JOIN book AS b ON b.book_id = c.book_id
+                    LEFT JOIN media AS m ON m.media_id = c.media_id
+                    WHERE l.borrow_date BETWEEN CAST(@from AS date) AND CAST(@to AS date)` + ITEM_FILTERS + `
+                ) AS l ON l.user_id = u.user_id
+                LEFT JOIN copies AS c ON c.copy_id = l.copy_id
+                LEFT JOIN book AS b ON b.book_id = c.book_id
+                LEFT JOIN media AS m ON m.media_id = c.media_id
+                LEFT JOIN fine AS fn ON fn.loan_id = l.loan_id
+                WHERE 1 = 1` + MEMBER_FILTERS + `
+                ORDER BY u.last_name, u.first_name, l.borrow_date DESC, l.loan_id DESC
+            `);
+
+    return toDetails(result.recordset, LOAN_SOURCE);
+}
+
+// one row per author per loan, so a book with two authors appears twice like in the summary
+async function authorDetails(database, f) {
+    const result = await withFilters(database.request(), f)
+        .query(`
+                SELECT a.author_id AS [Author ID],
+                       a.first_name + N' ' + a.last_name AS [Author],${LOAN_COLUMNS},${MEMBER_COLUMNS}
+                FROM loan AS l
+                JOIN [user] AS u ON u.user_id = l.user_id
+                JOIN copies AS c ON c.copy_id = l.copy_id
+                JOIN book AS b ON b.book_id = c.book_id
+                LEFT JOIN media AS m ON m.media_id = c.media_id
+                LEFT JOIN fine AS fn ON fn.loan_id = l.loan_id
+                JOIN book_author AS ba ON ba.book_id = b.book_id
+                JOIN author AS a ON a.author_id = ba.author_id
+                WHERE l.borrow_date BETWEEN CAST(@from AS date) AND CAST(@to AS date)` + MEMBER_FILTERS + ITEM_FILTERS + `
+                ORDER BY [Author], l.borrow_date DESC, l.loan_id DESC
+            `);
+
+    return toDetails(result.recordset, `${LOAN_SOURCE}, author, book_author`);
+}
+
+// one row per copy, with who has it right now
+async function inventoryDetails(database, f) {
+    const result = await withFilters(database.request(), f)
+        .query(`
+                SELECT c.copy_id AS [Copy #],
+                       COALESCE(b.title, m.title) AS [Title],
+                       CASE WHEN c.book_id IS NOT NULL THEN N'Book' ELSE m.media_type END AS [Type],
+                       b.isbn AS [ISBN],
+                       CASE WHEN l.loan_id IS NOT NULL THEN N'On loan'
+                            WHEN c.is_available = 1 THEN N'Available'
+                            WHEN w.waitlist_id IS NOT NULL THEN N'On hold'
+                            ELSE N'Unavailable' END AS [Status],
+                       l.loan_id AS [Loan #],
+                       COALESCE(u.user_id, hu.user_id) AS [Member ID],
+                       COALESCE(u.first_name + N' ' + u.last_name, hu.first_name + N' ' + hu.last_name) AS [Member],
+                       COALESCE(u.email, hu.email) AS [Email],
+                       CONVERT(char(10), l.borrow_date, 23) AS [Borrowed],
+                       ${auditTime('trg_loan_checkout')} AS [Checked out at],
+                       CONVERT(char(10), l.due_date, 23) AS [Due],
+                       w.waitlist_id AS [Hold #],
+                       CONVERT(char(10), w.expiration_date, 23) AS [Pick up by]
+                FROM copies AS c
+                LEFT JOIN book AS b ON b.book_id = c.book_id
+                LEFT JOIN media AS m ON m.media_id = c.media_id
+                LEFT JOIN loan AS l ON l.copy_id = c.copy_id AND l.return_date IS NULL
+                LEFT JOIN [user] AS u ON u.user_id = l.user_id
+                LEFT JOIN waitlist AS w ON w.held_copy_id = c.copy_id AND w.status = 'ready'
+                LEFT JOIN [user] AS hu ON hu.user_id = w.user_id
+                WHERE c.is_active = 1
+                  AND COALESCE(b.is_active, m.is_active) = 1` + ITEM_FILTERS + `
+                ORDER BY [Title], c.copy_id
+            `);
+
+    return toDetails(result.recordset, 'copies, book, media, loan, user, waitlist, audit_log');
 }
 
 function badRequest(message) {
@@ -700,8 +885,10 @@ export async function runReport(database, id, params) {
 
         const table = toTable(result.recordset);
         const rows = result.recordset;
+        const titles = new Set(rows.map((r) => `${r['Type']}:${r['Title']}`));
         return {
             ...table,
+            details: await loanDetails(database, f, (r) => titles.has(`${r['Type']}:${r['Title']}`)),
             stats: [
                 { label: 'Loans of these titles', value: String(rows.reduce((sum, r) => sum + r['Times borrowed'], 0)) },
                 { label: 'Most borrowed', value: rows.length ? rows[0]['Title'] : '-' },
@@ -739,6 +926,7 @@ export async function runReport(database, id, params) {
         const total = (column) => rows.reduce((sum, r) => sum + Number(r[column]), 0);
         return {
             ...table,
+            details: await fineDetails(database, f),
             stats: [
                 { label: 'Assessed', value: money(total('Assessed')) },
                 { label: 'Collected', value: money(total('Collected')) },
@@ -781,6 +969,7 @@ export async function runReport(database, id, params) {
         const rows = result.recordset;
         return {
             ...table,
+            details: await activityDetails(database, f),
             stats: [
                 { label: 'Total loans', value: String(rows.reduce((sum, r) => sum + r['Total loans'], 0)) },
                 { label: 'Overdue now', value: String(rows.reduce((sum, r) => sum + r['Overdue now'], 0)) },
@@ -823,6 +1012,7 @@ export async function runReport(database, id, params) {
         const late = rows.filter((r) => r['Outcome'] === 'Overdue' || r['Outcome'] === 'Returned late').length;
         return {
             ...table,
+            details: await loanDetails(database, f),
             stats: [
                 { label: 'Loans', value: String(rows.length) },
                 { label: 'Late or overdue', value: String(late) },
@@ -854,6 +1044,7 @@ export async function runReport(database, id, params) {
         const top = rows.slice(0, 10);
         return {
             ...table,
+            details: await authorDetails(database, { ...f, kind: 'book', authorId: null }),
             stats: [
                 { label: 'Authors borrowed', value: String(rows.length) },
                 { label: 'Most borrowed author', value: rows.length ? rows[0]['Author'] : '-' },
@@ -889,6 +1080,7 @@ export async function runReport(database, id, params) {
         const available = rows.reduce((sum, r) => sum + r['Available'], 0);
         return {
             ...table,
+            details: await inventoryDetails(database, f),
             stats: [
                 { label: 'Total copies', value: String(total) },
                 { label: 'On the shelf', value: total ? `${Math.round((available / total) * 100)}%` : '0%' },
