@@ -148,8 +148,6 @@ details summary { cursor: pointer; color: var(--brand); margin-top: .8rem; }
 
 .auth-switch { text-align: center; margin-top: 1rem; font-size: .95rem; } .auth-switch a { color: #8c1c1c; font-weight: 600; }
 
-/* triggers page: plain code */
-.triggers-page code { background: none; padding: 0; border-radius: 0; font-size: inherit; color: inherit; }
 
 /* login page: fixed snoopy background */
 .login-page.snoopy-bg { background: #c98a3c; }

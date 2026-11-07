@@ -53,7 +53,6 @@ export default function Layout({ children }: { children: ReactNode }) {
   const insightItems: NavItem[] = [
     { to: '/queries', label: 'Queries' },
     { to: '/reports', label: 'Reports' },
-    { to: '/triggers', label: 'Triggers & Audit Log' },
   ];
 
   const link = (n: NavItem) => (

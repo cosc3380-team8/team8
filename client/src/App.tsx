@@ -15,7 +15,6 @@ import MembersPage from './pages/MembersPage';
 import StaffPage from './pages/StaffPage';
 import QueriesPage from './pages/QueriesPage';
 import ReportsPage from './pages/ReportsPage';
-import TriggersPage from './pages/TriggersPage';
 import ReceiptsPage from './pages/ReceiptsPage';
 import NotificationsPage from './pages/NotificationsPage';
 
@@ -52,7 +51,6 @@ export default function App() {
       <Route path="/staff" element={page(<StaffPage />, ['admin'])} />
       <Route path="/queries" element={page(<QueriesPage />, ['admin'])} />
       <Route path="/reports" element={page(<ReportsPage />, ['admin'])} />
-      <Route path="/triggers" element={page(<TriggersPage />, ['admin'])} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
