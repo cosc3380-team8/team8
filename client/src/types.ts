@@ -451,8 +451,12 @@ export interface TableResult {
   rows: (string | number)[][];
 }
 
+export interface ReportDetails extends TableResult {
+  source: string;
+}
+
 export interface ReportResult extends TableResult {
   stats: { label: string; value: string }[];
   chart?: { title: string; labels: string[]; values: number[]; format?: 'number' | 'money' };
+  details?: ReportDetails;
 }
-
