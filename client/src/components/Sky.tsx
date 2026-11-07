@@ -27,7 +27,7 @@ export function MascotCloud() {
   return (
     <div className="mascot-cloud">
       <img className="cloud-img" src="/cloud.png" alt="" />
-      <img className="mascot-img" src="/mascot-cutout.png" alt="Uma's Library cougar mascot relaxing on a cloud" />
+      <img className="mascot-img" src="/mascot-cutout.png" alt="Shasta's Library cougar mascot relaxing on a cloud" />
     </div>
   );
 }
