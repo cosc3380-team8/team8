@@ -72,8 +72,8 @@ export default function Layout({ children }: { children: ReactNode }) {
       <main className="content-area"><div className="content"><LoadErrors />{children}</div></main>
       <aside className="sidebar" id="sidebar" hidden={!navOpen}>
         <div className="brand">
-          <div className="mascot-box"><img src="/mascot.png" alt="Uma's Library cougar mascot" /></div>
-          Uma’s Library<br /><span>Library Database System</span>
+          <div className="mascot-box"><img src="/mascot.png" alt="Shasta's Library cougar mascot" /></div>
+          Shasta’s Library<br /><span>Library Database System</span>
         </div>
         <nav>
           {items.map(link)}
