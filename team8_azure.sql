@@ -1,7 +1,7 @@
 -- Re-running this file deletes every table and all data.
 -- Full rebuild order: team8_azure.sql, team8_azure_seed.sql, team8_demo_accounts.sql, then
 -- team8_azure_migration.sql, _migration_2.sql, _migration_3.sql, team8_azure_procedures.sql, team8_azure_migration_4.sql,
--- team8_azure_migration_5.sql, team8_azure_migration_6.sql.
+-- team8_azure_migration_5.sql, team8_azure_migration_6.sql, team8_azure_migration_7.sql.
 -- The seed goes first so its loans use the original loan days and its rows do not fire audit/notification inserts.
 SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;

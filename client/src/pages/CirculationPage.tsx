@@ -100,7 +100,7 @@ export default function CirculationPage() {
               { header: 'Status', cell: (l) => l.status === 'overdue' ? <Badge tone="red">Overdue</Badge> : l.status === 'due-soon' ? <Badge tone="amber">Due soon</Badge> : <Badge tone="green">On loan</Badge> },
               { header: '', cell: (l) => <button className="btn small primary" onClick={() => run(async () => {
                   const r = await api.doReturn(l.loan_id);
-                  if (r.fine) throw new Error(`Returned late. A fine of ${money(r.fine.amount)} was created automatically.`);
+                  if (r.fine) throw new Error(`Returned late. The final fine is ${money(r.fine.amount)}.`);
                 }, `“${l.title}” returned.`, reloadAll)}>Return</button> },
             ]} />
         </Card>
@@ -181,7 +181,7 @@ export default function CirculationPage() {
   const submitCheckout = (e: FormEvent) => {
     e.preventDefault();
     const [kind, id] = item.split(':');
-    run(() => api.doCheckout(Number(memberId), kind as ItemKind, Number(id)), 'Checked out. Due date was set from the member’s role.', reloadAll);
+    run(async () => `Checked out. Due ${fmtDate((await api.doCheckout(Number(memberId), kind as ItemKind, Number(id))).due_date)}.`, 'Checked out.', reloadAll);
   };
 
   const activeMembers = (members.data ?? []).filter((m) => m.is_active);

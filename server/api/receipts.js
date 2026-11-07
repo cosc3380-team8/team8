@@ -4,7 +4,7 @@ const RECEIPT_SELECT = `
     SELECT
         r.receipt_id,
         r.transaction_code,
-        CONVERT(char(10), r.issue_date, 23) AS issued_date,
+        CONVERT(char(10), CAST(r.issue_date AS datetimeoffset) AT TIME ZONE 'Central Standard Time', 23) AS issued_date,
         p.payment_id,
         UPPER(LEFT(p.payment_method, 1)) + SUBSTRING(p.payment_method, 2, 4) AS payment_method,
         p.amount_paid,

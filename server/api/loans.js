@@ -114,6 +114,17 @@ export async function checkout(database, { userId, kind, itemId }) {
     throw error;
   }
 
+  // archived ("deleted") titles can't be borrowed
+  const item = await database
+    .request()
+    .input('itemId', sql.Int, itemId)
+    .query(`SELECT COUNT(*) AS ok FROM ${kind === 'book' ? 'book WHERE book_id' : 'media WHERE media_id'} = @itemId AND is_active = 1`);
+  if (!item.recordset[0].ok) {
+    const error = new Error('This title is archived and cannot be borrowed.');
+    error.statusCode = 400;
+    throw error;
+  }
+
   const result = await database
     .request()
     .input('p_user_id', sql.Int, userId)

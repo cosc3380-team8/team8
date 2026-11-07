@@ -662,11 +662,15 @@ function readDate(value, fallback) {
     if (!value) {
         return fallback;
     }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value))
+        || new Date(value).toISOString().slice(0, 10) !== value) {
         throw badRequest('Dates must look like 2026-10-01');
     }
     return value;
 }
+
+// % _ [ are wildcards in LIKE; wrap them so a search for "%" finds a real %
+const likeSafe = (s) => (s ? String(s).replace(/[[%_]/g, '[$&]') : s);
 
 const money = (n) => `$${Number(n || 0).toFixed(2)}`;
 
@@ -719,7 +723,7 @@ export async function runQuery(database, id, params) {
                 LEFT JOIN media AS m ON m.media_id = c.media_id
                 WHERE l.return_date IS NULL
                   AND l.due_date < CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'Central Standard Time' AS date)
-                ORDER BY [Days overdue] DESC
+                ORDER BY [Days overdue] DESC, [Loan #]
             `);
 
         return toTable(result.recordset);
@@ -733,7 +737,7 @@ export async function runQuery(database, id, params) {
 
         const result = await database
             .request()
-            .input('search', sql.NVarChar(100), term)
+            .input('search', sql.NVarChar(100), likeSafe(term))
             .query(`
                 SELECT b.title AS [Title],
                        N'Book' AS [Type],
@@ -784,8 +788,8 @@ export async function runQuery(database, id, params) {
             .query(`
                 SELECT ROW_NUMBER() OVER (ORDER BY CASE w.status WHEN 'ready' THEN 0 ELSE 1 END, w.request_time, w.waitlist_id) AS [Position],
                        u.first_name + N' ' + u.last_name AS [Member],
-                       CONVERT(char(10), w.request_time, 23) AS [Requested],
-                       w.status AS [Status],
+                       CONVERT(char(10), CAST(w.request_time AS datetimeoffset) AT TIME ZONE 'Central Standard Time', 23) AS [Requested],
+                       CASE w.status WHEN 'ready' THEN N'Ready' ELSE N'Waiting' END AS [Status],
                        CONVERT(char(10), w.expiration_date, 23) AS [Pick up by]
                 FROM waitlist AS w
                 JOIN [user] AS u ON u.user_id = w.user_id
@@ -834,7 +838,7 @@ function withFilters(request, f) {
         .input('authorId', sql.Int, f.authorId)
         .input('role', sql.NVarChar(10), f.role)
         .input('kind', sql.NVarChar(10), f.kind)
-        .input('keyword', sql.NVarChar(100), f.keyword);
+        .input('keyword', sql.NVarChar(100), likeSafe(f.keyword));
 }
 
 const MEMBER_FILTERS = `
@@ -930,7 +934,7 @@ export async function runReport(database, id, params) {
             stats: [
                 { label: 'Assessed', value: money(total('Assessed')) },
                 { label: 'Collected', value: money(total('Collected')) },
-                { label: 'Still owed', value: money(total('Outstanding')) },
+                { label: 'Outstanding', value: money(total('Outstanding')) },
             ],
             chart: {
                 title: 'Fines assessed per month',
@@ -960,7 +964,7 @@ export async function runReport(database, id, params) {
                     LEFT JOIN media AS m ON m.media_id = c.media_id
                     WHERE l.borrow_date BETWEEN CAST(@from AS date) AND CAST(@to AS date)` + ITEM_FILTERS + `
                 ) AS l ON l.user_id = u.user_id
-                WHERE 1 = 1` + MEMBER_FILTERS + `
+                WHERE u.is_active = 1` + MEMBER_FILTERS + `
                 GROUP BY u.is_faculty
                 ORDER BY [Role] DESC
             `);
@@ -1064,10 +1068,13 @@ export async function runReport(database, id, params) {
                        CASE WHEN c.book_id IS NOT NULL THEN N'Book' ELSE m.media_type END AS [Type],
                        COUNT(*) AS [Total copies],
                        SUM(CASE WHEN c.is_available = 1 THEN 1 ELSE 0 END) AS [Available],
-                       SUM(CASE WHEN c.is_available = 0 THEN 1 ELSE 0 END) AS [On loan]
+                       SUM(CASE WHEN ol.copy_id IS NOT NULL THEN 1 ELSE 0 END) AS [On loan],
+                       SUM(CASE WHEN hc.held_copy_id IS NOT NULL THEN 1 ELSE 0 END) AS [Held for pickup]
                 FROM copies AS c
                 LEFT JOIN book AS b ON b.book_id = c.book_id
                 LEFT JOIN media AS m ON m.media_id = c.media_id
+                LEFT JOIN (SELECT DISTINCT copy_id FROM loan WHERE return_date IS NULL) AS ol ON ol.copy_id = c.copy_id
+                LEFT JOIN (SELECT DISTINCT held_copy_id FROM waitlist WHERE status = 'ready') AS hc ON hc.held_copy_id = c.copy_id
                 WHERE c.is_active = 1
                   AND COALESCE(b.is_active, m.is_active) = 1` + ITEM_FILTERS + `
                 GROUP BY COALESCE(b.title, m.title), CASE WHEN c.book_id IS NOT NULL THEN N'Book' ELSE m.media_type END

@@ -42,6 +42,8 @@ import { getReceipt } from './receipts.js';
 
 export async function listFines(database, { userId } = {}) {
     try {
+        // today's fine for late items still out, so the list never shows an old amount (migration 7)
+        await database.request().execute('dbo.update_overdue_fines').catch((error) => console.error('Error updating overdue fines:', error));
         const result = await database
             .request()
         .input('userId', sql.Int, userId ?? null)
@@ -53,7 +55,7 @@ export async function listFines(database, { userId } = {}) {
                 CASE WHEN fs.paid_status = 1 THEN 'paid' ELSE 'unpaid' END AS paid_status,
                 fs.total_paid,
                 f.amount - fs.total_paid AS amount_owed,
-                CONVERT(char(10), fs.paid_date, 23) AS paid_date,
+                CASE WHEN fs.paid_date IS NOT NULL THEN (SELECT CONVERT(char(10), CAST(MAX(p2.payment_date) AS datetimeoffset) AT TIME ZONE 'Central Standard Time', 23) FROM dbo.[payments] AS p2 WHERE p2.fine_id = f.fine_id) END AS paid_date,
                 l.user_id,
                 CONCAT(u.first_name, ' ', u.last_name) AS member_name,
                 COALESCE(b.title, m.title) AS title,

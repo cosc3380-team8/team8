@@ -101,10 +101,12 @@ export async function placeHold(database, { userId, kind, itemId }) {
       SELECT
         (SELECT COUNT(*) FROM dbo.[user] WHERE user_id = @userId AND is_active = 1) AS member_ok,
         (SELECT COUNT(*) FROM waitlist WHERE user_id = @userId AND status IN ('waiting', 'ready')) AS active_holds,
-        (SELECT COUNT(*) FROM waitlist WHERE user_id = @userId AND status IN ('waiting', 'ready') AND ${col} = @itemId) AS dup
+        (SELECT COUNT(*) FROM waitlist WHERE user_id = @userId AND status IN ('waiting', 'ready') AND ${col} = @itemId) AS dup,
+        (SELECT COUNT(*) FROM ${kind === 'book' ? 'book' : 'media'} WHERE ${col} = @itemId AND is_active = 1) AS item_ok
     `);
-  const { member_ok, active_holds, dup } = check.recordset[0];
+  const { member_ok, active_holds, dup, item_ok } = check.recordset[0];
   if (!member_ok) throw badRequest('Member not found or account is inactive.');
+  if (!item_ok) throw badRequest('This title is archived and cannot be held.');
   if (dup) throw badRequest('You already have a hold on this item.');
   if (active_holds >= 3) throw badRequest('You can have at most 3 active holds.');
 
@@ -158,7 +160,7 @@ export async function listWaitlist(database, { userId, activeOnly = false } = {}
         w.user_id,
         w.book_id,
         w.media_id,
-        CONVERT(char(10), w.request_time, 23) AS request_date,
+        CONVERT(char(10), CAST(w.request_time AS datetimeoffset) AT TIME ZONE 'Central Standard Time', 23) AS request_date,
         w.status AS status,
         CONVERT(char(10), w.ready_date, 23) AS ready_date,
         CONVERT(char(10), w.expiration_date, 23) AS expiration_date,

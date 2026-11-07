@@ -69,7 +69,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 .form label { display: flex; flex-direction: column; gap: .25rem; font-size: .85rem; font-weight: 600; }
 .form label.check { flex-direction: row; align-items: center; gap: .5rem; }
 .form label small { font-weight: 400; }
-input, select { font: inherit; padding: .45rem .6rem; border: 1px solid #c9cfdd; border-radius: 8px; background: #fff; min-width: 160px; }
+input, select { font: inherit; padding: .45rem .6rem; border: 1px solid #c9cfdd; border-radius: 8px; background: #fff; min-width: 160px; max-width: 100%; }
+form label { min-width: 0; max-width: 100%; }
 fieldset.multi { border: 1px solid #c9cfdd; border-radius: 8px; margin: 0; padding: .4rem .7rem .6rem; max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: .25rem; }
 fieldset.multi legend { font-size: .85rem; font-weight: 600; padding: 0 .3rem; }
 fieldset.multi label.check { font-weight: 400; }

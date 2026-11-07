@@ -122,12 +122,14 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[] = []) {
   const [error, setError] = useState('');
   const id = useRef(0);
   if (id.current === 0) id.current = ++nextLoadId;
+  const latest = useRef(0);
 
   const load = useCallback(() => {
+    const mine = ++latest.current;
     pendingLoads++; emitLoad();
     fn()
-      .then((d) => { setData(d); setError(''); loadErrors.delete(id.current); })
-      .catch((e: Error) => { setError(e.message); loadErrors.set(id.current, e.message); })
+      .then((d) => { if (mine !== latest.current) return; setData(d); setError(''); loadErrors.delete(id.current); })
+      .catch((e: Error) => { if (mine !== latest.current) return; setError(e.message); loadErrors.set(id.current, e.message); })
       .finally(() => { pendingLoads--; emitLoad(); });
   }, deps);
   useEffect(load, [load]);

@@ -116,6 +116,22 @@ export async function updateMember(database, userId, member) {
     if (result.rowsAffected[0] === 0) {
         throw Object.assign(new Error('Member not found.'), { statusCode: 404 });
     }
+    if (member.is_active === false) await cancelActiveHolds(database, userId);
+}
+
+// a deactivated member can't pick anything up, so their holds go to the next person
+async function cancelActiveHolds(database, userId) {
+    const holds = await database
+        .request()
+        .input('userId', sql.Int, userId)
+        .query(`SELECT waitlist_id FROM waitlist WHERE user_id = @userId AND status IN ('waiting', 'ready')`);
+    for (const { waitlist_id } of holds.recordset) {
+        await database
+            .request()
+            .input('p_hold_id', sql.Int, waitlist_id)
+            .input('p_status', sql.NVarChar(9), 'cancelled')
+            .execute('dbo.release_hold');
+    }
 }
 
 export async function deleteMember(database, userId) {
@@ -131,4 +147,5 @@ export async function deleteMember(database, userId) {
     if (result.rowsAffected[0] === 0) {
         throw Object.assign(new Error('Member not found.'), { statusCode: 404 });
     }
+    await cancelActiveHolds(database, userId);
 }

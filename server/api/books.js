@@ -323,6 +323,11 @@ export async function addBook(database, book) {
         addCopies = 1
     } = book;
 
+    // same rule as the website form: 10 or 13 digits (the website strips dashes before sending)
+    if (isbn && !/^(\d{10}|\d{13})$/.test(String(isbn))) {
+        throw Object.assign(new Error('ISBN must be 10 or 13 digits.'), { statusCode: 400 });
+    }
+
     const authorIds = [...new Set(author_ids.map(Number))];
     const transaction = new sql.Transaction(database);
 
@@ -389,6 +394,11 @@ export async function updateBook(database, book) {
         author_ids = [], 
         addCopies
     } = book;
+
+    // same rule as the website form: 10 or 13 digits (the website strips dashes before sending)
+    if (isbn && !/^(\d{10}|\d{13})$/.test(String(isbn))) {
+        throw Object.assign(new Error('ISBN must be 10 or 13 digits.'), { statusCode: 400 });
+    }
 
     const authorIds = [...new Set(author_ids.map(Number))];
     const transaction = new sql.Transaction(database);

@@ -50,6 +50,8 @@ function PatronDashboard() {
   const reloadAll = () => { loans.reload(); holds.reload(); fines.reload(); rooms.reload(); };
   const unread = (notes.data ?? []).filter((n) => !n.is_read);
   const unpaid = (fines.data ?? []).filter((f) => f.paid_status === 'unpaid');
+  // the fine on a late item that is still out (it grows $1 each week, see team8_azure_migration_7.sql)
+  const fineFor = (loanId: number) => (fines.data ?? []).find((f) => f.loan_id === loanId);
 
   const active = loans.data ?? [];
   const atLimit = active.length >= limit.maxItems;
@@ -77,7 +79,7 @@ function PatronDashboard() {
       {showNotes && (
         <div className="alert-stack">
           {overdue.map((l) => (
-            <Alert key={l.loan_id} kind="error"><strong>{l.title}</strong> is overdue (due {fmtDate(l.due_date)}). Fines are $5 plus $1 for each full week late.</Alert>
+            <Alert key={l.loan_id} kind="error"><strong>{l.title}</strong> is overdue (due {fmtDate(l.due_date)}). {fineFor(l.loan_id) ? `Your fine is now ${money(fineFor(l.loan_id)!.amount)}. It goes up $1 each week until you return it.` : 'Fines are $5 plus $1 for each full week late.'}</Alert>
           ))}
           {dueSoon.map((l) => (
             <Alert key={l.loan_id} kind="warning">
@@ -124,7 +126,7 @@ function PatronDashboard() {
         <DataTable rows={fines.data ?? []} empty="No fines."
           columns={[
             { header: 'Item', cell: (f) => f.title },
-            { header: 'Returned', cell: (f) => fmtDate(f.return_date) },
+            { header: 'Returned', cell: (f) => f.return_date ? fmtDate(f.return_date) : 'Not yet · goes up $1 a week' },
             { header: 'Amount', cell: (f) => money(f.amount) },
             { header: 'Status', cell: (f) => f.paid_status === 'paid' ? <Badge tone="green">Paid · {f.receipt_code}</Badge> : Number(f.total_paid) > 0 ? <Badge tone="amber">Partly paid · {money(f.amount_owed ?? f.amount)} left</Badge> : <Badge tone="red">Unpaid · pay at the desk</Badge> },
             { header: '', cell: (f) => f.paid_status === 'paid' && <Link className="btn small" to="/receipts">View receipt</Link> },

@@ -138,8 +138,8 @@ export default function QueriesPage() {
                 ) : p.kind === 'item' ? (
                   <select value={params[p.name] ?? ''} onChange={(e) => setParams({ ...params, [p.name]: e.target.value })} required>
                     <option value="" disabled>Select…</option>
-                    <optgroup label="Books">{(books.data ?? []).map((b) => <option key={b.book_id} value={`book:${b.book_id}`}>{b.title}</option>)}</optgroup>
-                    <optgroup label="Media">{(media.data ?? []).map((m) => <option key={m.media_id} value={`media:${m.media_id}`}>{m.title}</option>)}</optgroup>
+                    <optgroup label="Books">{(books.data ?? []).filter((b) => b.is_active).map((b) => <option key={b.book_id} value={`book:${b.book_id}`}>{b.title}</option>)}</optgroup>
+                    <optgroup label="Media">{(media.data ?? []).filter((m) => m.is_active).map((m) => <option key={m.media_id} value={`media:${m.media_id}`}>{m.title}</option>)}</optgroup>
                   </select>
                 ) : (
                   <input value={params[p.name] ?? ''} onChange={(e) => setParams({ ...params, [p.name]: e.target.value })} placeholder="Leave blank for everything" />
