@@ -20,7 +20,7 @@ export default function ReceiptModal({ receipt, onClose }: { receipt: ReceiptVie
     <Modal title="Payment receipt" onClose={onClose}>
       <div className="receipt">
         <div className="receipt-head">
-          <strong>Uma’s Library</strong>
+          <strong>Shasta’s Library</strong>
           <span className="muted">Library fine payment — paid in person</span>
         </div>
         <dl>
