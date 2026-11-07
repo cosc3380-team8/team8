@@ -66,6 +66,7 @@ export default function CatalogPage() {
 
 import { useState } from 'react';
 import * as api from '../api/api';
+import { LIMITS } from '../api/rules';
 import { useAuth } from '../auth/AuthContext';
 import { Badge, Card, DataTable, PageHeader, Tabs, useAction, useLoad } from '../components/ui';
 import { fmtDate } from '../utils/dates';
@@ -81,7 +82,8 @@ export default function CatalogPage() {
   const { run, banner } = useAction();
   const reload = () => { books.reload(); media.reload(); myHolds.reload(); };
   const activeHolds = (myHolds.data ?? []).filter((h) => h.status === 'waiting' || h.status === 'ready');
-  const atLimit = activeHolds.length >= 3;
+  const holdLimit = LIMITS[session?.role === 'faculty' ? 'faculty' : 'student'].maxHolds;
+  const atLimit = activeHolds.length >= holdLimit;
   const needle = q.trim().toLowerCase();
   const isbnNeedle = q.replace(/[^0-9Xx]/g, '').toUpperCase();
 
@@ -91,7 +93,7 @@ export default function CatalogPage() {
     if (mine) return mine.status === 'ready'
       ? <Badge tone="green">Ready · pick up by {fmtDate(mine.expiration_date)}</Badge>
       : <Badge tone="amber">On hold · queue #{mine.queue_position ?? '?'}</Badge>;
-    if (atLimit) return <span className="muted">Hold limit (3) reached</span>;
+    if (atLimit) return <span className="muted">Hold limit ({holdLimit}) reached</span>;
     return (
       <button className="btn small" onClick={() => run(() => api.doPlaceHold(session!.id, kind, id),
         available > 0 ? 'Hold placed — it is ready for pickup for 3 days.' : 'You are in the hold queue.', reload)}>

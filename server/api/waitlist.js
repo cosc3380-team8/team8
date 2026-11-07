@@ -101,14 +101,16 @@ export async function placeHold(database, { userId, kind, itemId }) {
       SELECT
         (SELECT COUNT(*) FROM dbo.[user] WHERE user_id = @userId AND is_active = 1) AS member_ok,
         (SELECT COUNT(*) FROM waitlist WHERE user_id = @userId AND status IN ('waiting', 'ready')) AS active_holds,
+        (SELECT CASE WHEN is_faculty = 1 THEN 6 ELSE 3 END FROM dbo.[user] WHERE user_id = @userId) AS hold_limit,
         (SELECT COUNT(*) FROM waitlist WHERE user_id = @userId AND status IN ('waiting', 'ready') AND ${col} = @itemId) AS dup,
         (SELECT COUNT(*) FROM ${kind === 'book' ? 'book' : 'media'} WHERE ${col} = @itemId AND is_active = 1) AS item_ok
     `);
-  const { member_ok, active_holds, dup, item_ok } = check.recordset[0];
+  const { member_ok, active_holds, hold_limit, dup, item_ok } = check.recordset[0];
   if (!member_ok) throw badRequest('Member not found or account is inactive.');
   if (!item_ok) throw badRequest('This title is archived and cannot be held.');
   if (dup) throw badRequest('You already have a hold on this item.');
-  if (active_holds >= 3) throw badRequest('You can have at most 3 active holds.');
+  // students can have 3 holds at once, faculty 6
+  if (active_holds >= hold_limit) throw badRequest(`You can have at most ${hold_limit} active holds.`);
 
   const result = await database.request()
     .input('userId', sql.Int, userId)

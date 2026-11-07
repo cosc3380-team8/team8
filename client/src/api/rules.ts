@@ -277,8 +277,8 @@ export function reserveRoom(s: DBState, userId: number, roomId: number, start: s
 } */
 
 export const LIMITS = {
-  student: { maxItems: 3, days: 20 },
-  faculty: { maxItems: 6, days: 30 },
+  student: { maxItems: 3, days: 20, maxHolds: 3 },
+  faculty: { maxItems: 6, days: 30, maxHolds: 6 },
 } as const;
 
 export const STUDENT_LIMIT_MESSAGE =

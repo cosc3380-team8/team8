@@ -260,7 +260,7 @@ export default function CirculationPage() {
               { header: 'Status', cell: (l) => l.status === 'overdue' ? <Badge tone="red">Overdue</Badge> : l.status === 'due-soon' ? <Badge tone="amber">Due soon</Badge> : <Badge tone="green">On loan</Badge> },
               { header: '', cell: (l) => <button className="btn small primary" onClick={() => run(async () => {
                   const r = await api.doReturn(l.loan_id);
-                  if (r.fine) return { warning: `“${l.title}” returned late. A fine of ${money(r.fine.amount)} was created automatically.` };
+                  if (r.fine) return { warning: `“${l.title}” returned late. The final fine is ${money(r.fine.amount)}.` };
                 }, `“${l.title}” returned.`, reloadAll)}>Return</button> },
             ]} />
         </Card>
@@ -277,7 +277,15 @@ export default function CirculationPage() {
               { header: 'Member', cell: (h) => h.member_name },
               { header: 'Requested', cell: (h) => fmtDate(h.request_date) },
               { header: 'Status', cell: (h) => h.status === 'ready' ? <Badge tone="green">Ready · expires {fmtDate(h.expiration_date)}</Badge> : <Badge tone="amber">Queue #{h.queue_position}</Badge> },
-              { header: '', cell: (h) => <button className="btn small danger" onClick={() => run(() => api.doCancelHold(h.hold_id), 'Hold cancelled.', reloadAll)}>Cancel</button> },
+              { header: '', cell: (h) => (
+                <div className="row gap">
+                  {/* a ready hold: check out the copy set aside for this member */}
+                  {h.status === 'ready' && <button className="btn small primary" onClick={() => run(async () =>
+                    `Checked out to ${h.member_name}. Due ${fmtDate((await api.doCheckout(h.user_id, h.kind, Number(h.kind === 'book' ? h.book_id : h.media_id))).due_date)}.`,
+                    'Checked out.', reloadAll)}>Check out</button>}
+                  <button className="btn small danger" onClick={() => run(() => api.doCancelHold(h.hold_id), 'Hold cancelled.', reloadAll)}>Cancel</button>
+                </div>
+              ) },
             ]} />
         </Card>
       )}
