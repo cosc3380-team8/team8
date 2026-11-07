@@ -29,6 +29,9 @@ nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .content { padding: 1.5rem 2rem 3rem; max-width: 1200px; width: 100%; }
 .nav-closed .content { padding-right: 4.5rem; }
 .content-area .page-header { background: rgba(255,255,255,.9); border-radius: var(--radius); padding: .8rem 1rem; }
+/* tabs sit on the background picture too, so give them the same white box */
+.content-area .tabs { background: rgba(255,255,255,.9); border-radius: var(--radius); padding: .3rem; width: fit-content; max-width: 100%; box-sizing: border-box; }
+.content-area .tab:not(.active) { color: var(--text); }
 /* menu button, top right */
 .nav-toggle { position: fixed; top: .8rem; right: .8rem; z-index: 30; width: 2.6rem; height: 2.6rem; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px; background: var(--brand-dark); border: 1px solid rgba(255,255,255,.35); border-radius: 8px; cursor: pointer; padding: 0; }
 .nav-toggle span { display: block; width: 1.3rem; height: 2px; background: #fff; border-radius: 2px; }
