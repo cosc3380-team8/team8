@@ -134,6 +134,8 @@ export async function login(database, email, password) {
 
     // release holds that were not picked up in time
     await database.request().execute('dbo.expire_holds').catch((error) => console.error('Error expiring holds:', error));
+    // send "must be returned in 2 days" notifications (each loan only once)
+    await database.request().execute('dbo.send_due_reminders').catch((error) => console.error('Error sending due reminders:', error));
 
     const session = {
         id: account.id,

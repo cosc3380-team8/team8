@@ -60,6 +60,7 @@ const TRIGGERS = [
   { kind: 'Trigger', name: 'trg_loan_return', on: 'loan · AFTER UPDATE (return_date)', does: 'Marks the copy available and creates a fine ($5 + $1 per full week late) if overdue.', notice: 'Member is told the item was returned, and about any fine.' },
   { kind: 'Trigger', name: 'trg_room_reservations_overlap', on: 'room_reservations · AFTER INSERT, UPDATE', does: 'Blocks overlapping bookings of the same room.', notice: 'Member is told about the booking or its cancellation.' },
   { kind: 'Procedure', name: 'dbo.promote_next_hold', on: 'called by dbo.return_loan and dbo.release_hold (shows as sp_promote_next_hold in the log)', does: 'When a copy frees up, the earliest waiting hold becomes ready for 3 days.', notice: 'Member is told their hold is ready and the pick-up deadline.' },
+  { kind: 'Procedure', name: 'dbo.send_due_reminders', on: 'run on every login (shows as sp_send_due_reminders in the log)', does: 'Finds open loans due in exactly 2 days (Houston date). Each loan is reminded only once.', notice: 'Member is told “(title) must be returned in 2 days”.' },
 ];
 
 export default function TriggersPage() {

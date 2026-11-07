@@ -94,7 +94,7 @@ export async function listLoans(
       LEFT JOIN dbo.[fine] AS f ON f.loan_id = l.loan_id
       CROSS APPLY (
         SELECT DATEDIFF(
-          DAY, CAST(GETDATE() AS date), l.due_date
+          DAY, CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'Central Standard Time' AS date), l.due_date
         ) AS days_until_due
       ) AS d
       WHERE (@userId IS NULL OR l.user_id = @userId)

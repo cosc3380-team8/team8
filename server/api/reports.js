@@ -501,8 +501,8 @@ export async function runQuery(database, id, params) {
                        CASE WHEN c.book_id IS NOT NULL THEN N'Book' ELSE N'Media' END AS [Type],
                        CONVERT(char(10), l.borrow_date, 23) AS [Borrowed],
                        CONVERT(char(10), l.due_date, 23) AS [Due],
-                       CASE WHEN l.due_date < CAST(GETDATE() AS date) THEN N'Overdue'
-                            WHEN DATEDIFF(day, CAST(GETDATE() AS date), l.due_date) <= 2 THEN N'Due soon'
+                       CASE WHEN l.due_date < CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'Central Standard Time' AS date) THEN N'Overdue'
+                            WHEN DATEDIFF(day, CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'Central Standard Time' AS date), l.due_date) <= 2 THEN N'Due soon'
                             ELSE N'On loan' END AS [Status]
                 FROM loan AS l
                 JOIN copies AS c ON c.copy_id = l.copy_id
@@ -525,15 +525,15 @@ export async function runQuery(database, id, params) {
                        CASE WHEN u.is_faculty = 1 THEN N'Faculty' ELSE N'Student' END AS [Role],
                        COALESCE(b.title, m.title) AS [Title],
                        CONVERT(char(10), l.due_date, 23) AS [Due],
-                       DATEDIFF(day, l.due_date, CAST(GETDATE() AS date)) AS [Days overdue],
-                       CAST(5 + DATEDIFF(day, l.due_date, CAST(GETDATE() AS date)) / 7 AS decimal(8,2)) AS [Projected fine]
+                       DATEDIFF(day, l.due_date, CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'Central Standard Time' AS date)) AS [Days overdue],
+                       CAST(5 + DATEDIFF(day, l.due_date, CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'Central Standard Time' AS date)) / 7 AS decimal(8,2)) AS [Projected fine]
                 FROM loan AS l
                 JOIN [user] AS u ON u.user_id = l.user_id
                 JOIN copies AS c ON c.copy_id = l.copy_id
                 LEFT JOIN book AS b ON b.book_id = c.book_id
                 LEFT JOIN media AS m ON m.media_id = c.media_id
                 WHERE l.return_date IS NULL
-                  AND l.due_date < CAST(GETDATE() AS date)
+                  AND l.due_date < CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'Central Standard Time' AS date)
                 ORDER BY [Days overdue] DESC
             `);
 
@@ -760,7 +760,7 @@ export async function runReport(database, id, params) {
                        COUNT(DISTINCT u.user_id) AS [Members],
                        COUNT(l.loan_id) AS [Total loans],
                        SUM(CASE WHEN l.loan_id IS NOT NULL AND l.return_date IS NULL THEN 1 ELSE 0 END) AS [Active loans],
-                       SUM(CASE WHEN l.return_date IS NULL AND l.due_date < CAST(GETDATE() AS date) THEN 1 ELSE 0 END) AS [Overdue now],
+                       SUM(CASE WHEN l.return_date IS NULL AND l.due_date < CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'Central Standard Time' AS date) THEN 1 ELSE 0 END) AS [Overdue now],
                        SUM(CASE WHEN l.return_date > l.due_date THEN 1 ELSE 0 END) AS [Returned late],
                        CAST(COUNT(l.loan_id) * 1.0 / COUNT(DISTINCT u.user_id) AS decimal(6,2)) AS [Avg loans / member]
                 FROM [user] AS u
@@ -803,7 +803,7 @@ export async function runReport(database, id, params) {
                        CONVERT(char(10), l.borrow_date, 23) AS [Borrowed],
                        CONVERT(char(10), l.due_date, 23) AS [Due],
                        CONVERT(char(10), l.return_date, 23) AS [Returned],
-                       CASE WHEN l.return_date IS NULL AND l.due_date < CAST(GETDATE() AS date) THEN N'Overdue'
+                       CASE WHEN l.return_date IS NULL AND l.due_date < CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'Central Standard Time' AS date) THEN N'Overdue'
                             WHEN l.return_date IS NULL THEN N'On loan'
                             WHEN l.return_date > l.due_date THEN N'Returned late'
                             ELSE N'Returned on time' END AS [Outcome],
