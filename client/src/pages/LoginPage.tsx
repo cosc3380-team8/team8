@@ -27,7 +27,7 @@ export default function LoginPage() {
       <div className="login-wrap">
       <MascotCloud />
       <div className="login-card">
-        <h1>Uma’s Library</h1>
+        <h1>Shasta’s Library</h1>
         <p className="muted">Sign in with your library account.</p>
         <form onSubmit={submit} className="form">
           <label><span>Email</span>
