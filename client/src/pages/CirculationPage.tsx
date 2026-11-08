@@ -170,7 +170,7 @@ export default function CirculationPage() {
   const { run, banner } = useAction();
   const [memberId, setMemberId] = useState('');
   const [item, setItem] = useState('');
-  const [method, setMethod] = useState('Cash');
+  //const [method, setMethod] = useState('Cash');//
   const [isbn, setIsbn] = useState('');
   const [isbnNote, setIsbnNote] = useState('');
   const [receipt, setReceipt] = useState<ReceiptView | null>(null);
@@ -202,7 +202,7 @@ export default function CirculationPage() {
     }
   };
 
-  const recordPayment = (fineId: number) => run(async () => {
+  const recordPayment = (fineId: number, method: string) => run(async () => {
     setReceipt(await api.doPayFine(fineId, method));
   }, 'Payment received in person. Receipt issued.', reloadAll);
 
@@ -291,13 +291,8 @@ export default function CirculationPage() {
       )}
 
       {tab === 'fines' && (
-        <Card title="Fines — in-person payments" actions={
-          <label className="row gap"><span className="muted">Paid in person by</span>
-            <select value={method} onChange={(e) => setMethod(e.target.value)}>
-              {IN_PERSON_METHODS.map((m) => <option key={m}>{m}</option>)}
-            </select>
-          </label>}>
-          <p className="muted">Members pay fines at the desk. Recording a payment creates a receipt the member can see under My Receipts.</p>
+      <card title = "fines - in - person payments">
+         <p className="muted">Members pay fines at the desk. choose cash or card on a fine to record a payment.</p>
           <DataTable rows={fines.data ?? []} empty="No fines have been issued."
             columns={[
               { header: 'Fine #', cell: (f) => f.fine_id },
@@ -306,7 +301,13 @@ export default function CirculationPage() {
               { header: 'Due / returned', cell: (f) => `${fmtDate(f.due_date)} / ${fmtDate(f.return_date)}` },
               { header: 'Amount', cell: (f) => money(f.amount) },
               { header: 'Status', cell: (f) => f.paid_status === 'paid' ? <Badge tone="green">Paid {fmtDate(f.paid_date)} · {f.receipt_code}</Badge> : Number(f.total_paid) > 0 ? <Badge tone="amber">Partly paid · {money(f.amount_owed ?? f.amount)} left</Badge> : <Badge tone="red">Unpaid</Badge> },
-              { header: '', cell: (f) => f.paid_status === 'unpaid' && <button className="btn small primary" onClick={() => recordPayment(f.fine_id)}>Record payment &amp; print receipt</button> },
+              { header: 'Record payment', cell: (f) => f.paid_status === 'unpaid' && (
+                <div className="row gap">
+                  {IN_PERSON_METHODS.map((m) => (
+                   <button key={m} className="btn small primary" title={`Record ${m.toLowerCase()} payment and print receipt`} onClick={() => recordPayment(f.fine_id, m)}>{m}</button>
+                  ))}
+                </div>
+              ) },
             ]} />
         </Card>
       )}
