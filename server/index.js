@@ -762,6 +762,39 @@ import { listReceipts } from './api/receipts.js';
 
 const port = Number(process.env.PORT) || 3000;
 const allowedOrigins = new Set(['http://localhost', 'http://localhost:5173', 'https://umas-library.vercel.app']);
+let pool;
+let poolExpiresAt = 0;
+let poolRefresh;
+
+// Create a new pool connection for every request
+async function getDatabase() {
+  if (pool && Date.now() < poolExpiresAt - 5 * 60 * 1000) {
+    return pool;
+  }
+
+  if (!poolRefresh) {
+    poolRefresh = (async () => {
+      const { config, expiresOnTimestamp } = await getSqlConfig();
+      const nextPool = new sql.ConnectionPool(config);
+
+      await nextPool.connect();
+
+      const oldPool = pool;
+      pool = nextPool;
+      poolExpiresAt = expiresOnTimestamp;
+
+      if (oldPool) {
+        await oldPool.close();
+      }
+
+      return pool;
+    })().finally(() => {
+      poolRefresh = null;
+    });
+  }
+
+  return poolRefresh;
+}
 
 // Read a JSON request body (Vercel may have parsed it already)
 async function readJson(req) {
@@ -822,7 +855,7 @@ function describeError(error, fallback) {
 // Connect, run a handler, and send its result (204 when it has none)
 async function respond(res, successStatus, fallback, handler) {
     try {
-        const database = await sql.connect(await getSqlConfig());
+        const database = await getDatabase();
         const data = await handler(database);
         if (data === undefined) {
             res.writeHead(204);
@@ -876,7 +909,7 @@ const server = http.createServer(async (req, res) => {
     // Route handlers for books
     if (req.method === 'GET' && url.pathname === '/books') {
         try {
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
             const books = await listBooks(database, url.searchParams.get('search') || '');
             res.writeHead(200, { 'Content-Type': 'application/json'});
             res.end(JSON.stringify(books));
@@ -895,7 +928,7 @@ const server = http.createServer(async (req, res) => {
     else if (req.method === 'POST' && url.pathname === '/books') {
         try {
             const body = await readJson(req);
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
             
             const book = await addBook(database, body);
 
@@ -921,7 +954,7 @@ const server = http.createServer(async (req, res) => {
         }
         try {
             const body = await readJson(req);
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
             const book = { ...body, book_id: Number(match[1]) };
 
             await updateBook(database, book);
@@ -952,7 +985,7 @@ const server = http.createServer(async (req, res) => {
         const book_id = Number(match[1]);
         
         try {
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
 
             await deleteBook(database, book_id);
 
@@ -973,7 +1006,7 @@ const server = http.createServer(async (req, res) => {
     // Route handlers for authors
     else if (req.method === 'GET' && url.pathname === '/authors') {
         try {
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
             const books = await listAuthors(database, url.searchParams.get('search') || '');
             res.writeHead(200, { 'Content-Type': 'application/json'});
             res.end(JSON.stringify(books));
@@ -992,7 +1025,7 @@ const server = http.createServer(async (req, res) => {
     else if (req.method === 'POST' && url.pathname === '/authors') {
         try {
             const body = await readJson(req);
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
 
             const author = await saveAuthor(database, body);
 
@@ -1023,7 +1056,7 @@ const server = http.createServer(async (req, res) => {
 
         try {
             const body = await readJson(req);
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
 
             await updateAuthor(database, author_id, body);
 
@@ -1052,7 +1085,7 @@ const server = http.createServer(async (req, res) => {
         const author_id = Number(match[1]);
 
         try {
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
             await deleteAuthor(database, author_id);
 
             res.writeHead(204);
@@ -1072,7 +1105,7 @@ const server = http.createServer(async (req, res) => {
     // Route handlers for media
     else if (req.method === 'GET' && url.pathname === '/media') {
         try {
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
             const media = await listMedia(database, url.searchParams.get('search') || '');
             res.writeHead(200, { 'Content-Type': 'application/json'});
             res.end(JSON.stringify(media));
@@ -1091,7 +1124,7 @@ const server = http.createServer(async (req, res) => {
     else if (req.method === 'POST' && url.pathname === '/media') {
         try {
             const body = await readJson(req);
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
 
             const media = await addMedia(database, body);
 
@@ -1121,7 +1154,7 @@ const server = http.createServer(async (req, res) => {
 
         try {
             const body = await readJson(req);
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
 
             await updateMedia(database, media_id, body);
 
@@ -1149,7 +1182,7 @@ const server = http.createServer(async (req, res) => {
         const media_id = Number(match[1]);
 
         try {
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
 
             await deleteMedia(database, media_id);
 
@@ -1170,7 +1203,7 @@ const server = http.createServer(async (req, res) => {
     // Route handlers for loans
     else if (req.method === 'GET' && url.pathname === '/loans') {
         try {
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
             const userId = url.searchParams.get('user_id');
             assertSelf(user, userId);
 
@@ -1206,7 +1239,7 @@ const server = http.createServer(async (req, res) => {
     // Route handlers for rooms
     else if (req.method === 'GET' && url.pathname === '/rooms') {
         try {
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
             const rooms = await listRooms(database, url.searchParams.get('search') || '');
             res.writeHead(200, { 'Content-Type': 'application/json'});
             res.end(JSON.stringify(rooms));
@@ -1225,7 +1258,7 @@ const server = http.createServer(async (req, res) => {
     else if (req.method === 'POST' && url.pathname === '/rooms') {
         try {
             const body = await readJson(req);
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
 
             const room = await saveRoom(database, body);
 
@@ -1253,7 +1286,7 @@ const server = http.createServer(async (req, res) => {
 
         try {
             const body = await readJson(req);
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
 
             await updateRoom(database, room_id, body);
 
@@ -1282,7 +1315,7 @@ const server = http.createServer(async (req, res) => {
         const room_id = Number(match[1]);
 
         try {
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
 
             await deleteRoom(database, room_id);
 
@@ -1307,7 +1340,7 @@ const server = http.createServer(async (req, res) => {
 
         try {
             assertSelf(user, rawUserId);
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
             const reservations = await listReservations(database, userId);
 
             res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1327,7 +1360,7 @@ const server = http.createServer(async (req, res) => {
             body.reservation_id = null; // Ensure reservation_id is null for new reservations
             assertSelf(user, body.userId);
 
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
             await saveRoomReservation(database, body);
             
             res.writeHead(201);
@@ -1350,7 +1383,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         try {
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
             const reservation_id = Number(match[1]);
             assertSelf(user, await reservationOwner(database, reservation_id));
             await cancelRoomReservation(database, reservation_id);
@@ -1368,7 +1401,7 @@ const server = http.createServer(async (req, res) => {
     // Route handlers for members
     else if (req.method === 'GET' && url.pathname === '/members') {
         try {
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
             const members = await listMembers(database);
             res.writeHead(200, { 'Content-Type': 'application/json'});
             res.end(JSON.stringify(members));
@@ -1405,7 +1438,7 @@ const server = http.createServer(async (req, res) => {
     // Route handlers for staff
     else if (req.method === 'GET' && url.pathname === '/staff') {
         try {
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
             const staff = await listStaff(database);
             res.writeHead(200, { 'Content-Type': 'application/json'});
             res.end(JSON.stringify(staff));
@@ -1485,7 +1518,7 @@ const server = http.createServer(async (req, res) => {
     
     else if (req.method === 'GET' && url.pathname === '/report-authors') {
         try {
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
             const authors = await listReportAuthors(database);
             res.writeHead(200, { 'Content-Type': 'application/json'});
             res.end(JSON.stringify(authors));
@@ -1498,7 +1531,7 @@ const server = http.createServer(async (req, res) => {
     }
     else if (req.method === 'GET' && url.pathname.startsWith('/queries/')) {
         try {
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
             const id = url.pathname.slice('/queries/'.length);
             const table = await runQuery(database, id, Object.fromEntries(url.searchParams));
             res.writeHead(200, { 'Content-Type': 'application/json'});
@@ -1517,7 +1550,7 @@ const server = http.createServer(async (req, res) => {
     }
     else if (req.method === 'GET' && url.pathname.startsWith('/reports/')) {
         try {
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
             const id = url.pathname.slice('/reports/'.length);
             const report = await runReport(database, id, Object.fromEntries(url.searchParams));
             res.writeHead(200, { 'Content-Type': 'application/json'});
@@ -1537,7 +1570,7 @@ const server = http.createServer(async (req, res) => {
         //added
     else if (req.method === 'POST' && url.pathname === '/holds') {
     try {
-        const database = await sql.connect(await getSqlConfig());
+        const database = await getDatabase();
         const body = await readJson(req);
         assertSelf(user, body.userId);
         const hold = await placeHold(database, body);
@@ -1563,7 +1596,7 @@ const server = http.createServer(async (req, res) => {
     }
     else if (req.method === 'GET' && url.pathname.startsWith('/holds')) {
         try {
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
             const userId = url.searchParams.get('user_id');
             assertSelf(user, userId);
             const activeOnly = url.searchParams.get('active_only') === 'true';
@@ -1592,7 +1625,7 @@ const server = http.createServer(async (req, res) => {
     }
     else if (req.method === 'GET' && url.pathname.startsWith('/fines')) {
         try {
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
             const userId = url.searchParams.get('user_id');
             assertSelf(user, userId);
             const fines = await listFines(database, { userId });
@@ -1612,7 +1645,7 @@ const server = http.createServer(async (req, res) => {
     }
     else if (req.method === 'POST' && url.pathname === '/login') {
         try {
-            const database = await sql.connect(await getSqlConfig());
+            const database = await getDatabase();
             const body = await readJson(req);
             const session = await login(database, body.email, body.password);
             res.writeHead(200, { 'Content-Type': 'application/json'});

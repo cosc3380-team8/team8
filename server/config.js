@@ -16,25 +16,28 @@ const credential = new ClientAssertionCredential (
 );
 
 export async function getSqlConfig() {
-  const { token } = await credential.getToken('https://database.windows.net/.default');
-  if (!token) {
+  const { token, expiresOnTimestamp } = await credential.getToken('database.windows.net/.default');
+  if (!token || !expiresOnTimestamp) {
     throw new Error ('Could not obtain Azure SQL access token');
   }
   
   // Create configuration object for Azure SQL connection
   return {
-      server,
-      database,
-      port,
-      authentication: {
-          type,
-          options: {
-            token
-          },
-      },
-      options: {
-          encrypt: true,
-          trustServerCertificate: false
+      expiresOnTimestamp,
+      config: {
+        server,
+        database,
+        port,
+        authentication: {
+            type,
+            options: {
+              token
+            },
+        },
+        options: {
+            encrypt: true,
+            trustServerCertificate: false
+        }
       }
   };
 }
