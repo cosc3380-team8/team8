@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { FormEvent, useRef, useState } from 'react';
 import * as api from '../api/api';
 import { REPORTS, ReportFilters, runReport } from '../api/analytics';
 import { Alert, Card, DataTable, PageHeader, Tabs, useLoad } from '../components/ui';
@@ -16,22 +16,47 @@ export default function ReportsPage() {
   const [id, setId] = useState(REPORTS[0].id);
   const [filters, setFilters] = useState<ReportFilters>({});
   const [data, setData] = useState<ReportResult | null>(null);
+  // the filters the report on screen was made with (null = nothing shown yet)
+  const [shown, setShown] = useState<ReportFilters | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const run = useRef(0); // stops an old answer from showing after you switch reports
   const members = useLoad(api.listMembers);
   const authors = useLoad(api.listReportAuthors);
   const def = REPORTS.find((r) => r.id === id)!;
   const has = (k: keyof ReportFilters) => def.filters.includes(k);
   const set = (k: keyof ReportFilters, v: string) => setFilters((f) => ({ ...f, [k]: v || undefined }));
 
-  useEffect(() => {
+  // Uma: reports don't load by themselves. Pick the filters, then click "View report".
+  const pick = (next: string) => { run.current++; setId(next); setData(null); setShown(null); setError(''); setLoading(false); };
+
+  const view = async (e?: FormEvent) => {
+    e?.preventDefault();
+    const n = ++run.current;
+    setLoading(true);
     setError('');
-    runReport(id, filters).then(setData).catch((e: Error) => { setData(null); setError(e.message); });
-  }, [id, filters]);
+    try {
+      const result = await runReport(id, filters);
+      if (n !== run.current) return;
+      setData(result);
+      setShown(filters);
+    } catch (err) {
+      if (n !== run.current) return;
+      setData(null);
+      setShown(null);
+      setError((err as Error).message);
+    } finally {
+      if (n === run.current) setLoading(false);
+    }
+  };
 
   const max = Math.max(1, ...(data?.chart?.values ?? [0]));
   const active = def.filters.filter((k) => filters[k]);
-  const describe = (k: keyof ReportFilters): string => {
-    const v = filters[k]!;
+  const shownActive = def.filters.filter((k) => shown?.[k]);
+  // the filters were changed after the report was made
+  const changed = shown !== null && def.filters.some((k) => (shown[k] ?? '') !== (filters[k] ?? ''));
+  const describe = (k: keyof ReportFilters, from: ReportFilters = filters): string => {
+    const v = from[k]!;
     if (k === 'from') return `from ${fmtDate(v)}`;
     if (k === 'to') return `to ${fmtDate(v)}`;
     if (k === 'userId') { const m = members.data?.find((x) => x.user_id === Number(v)); return m ? `member: ${m.first_name} ${m.last_name}` : 'member'; }
@@ -43,20 +68,21 @@ export default function ReportsPage() {
 
   return (
     <>
-      <PageHeader title="Reports" subtitle="Library reports you can narrow down by date, member, author, title keyword and more." actions={<button className="btn" onClick={() => window.print()}>Print</button>} />
-      <Tabs value={id} onChange={setId} tabs={REPORTS.map((r) => ({ id: r.id, label: r.title }))} />
+      <PageHeader title="Reports" subtitle="Library reports you can narrow down by date, member, author, title keyword and more." actions={<button className="btn" onClick={() => window.print()} disabled={!data}>Print</button>} />
+      <Tabs value={id} onChange={pick} tabs={REPORTS.map((r) => ({ id: r.id, label: r.title }))} />
 
       <Card title="Filters" actions={active.length > 0 && <button className="btn small" onClick={() => setFilters({})}>Clear filters</button>}>
         {(has('from') || has('to')) && (
           <div className="row wrap" style={{ marginBottom: '.7rem' }}>
             <span className="muted">{def.dateLabel ?? 'Date'}:</span>
             {PRESETS.map((p) => (
-              <button key={p.label} className="btn small" onClick={() => setFilters((f) => ({
+              <button type="button" key={p.label} className="btn small" onClick={() => setFilters((f) => ({
                 ...f, from: p.days === null ? undefined : addDays(today(), -p.days), to: p.days === null ? undefined : today(),
               }))}>{p.label}</button>
             ))}
           </div>
         )}
+        <form onSubmit={view}>
         <div className="filters">
           {has('from') && <label><span>{def.dateLabel ?? 'Date'} from</span><input type="date" value={filters.from ?? ''} onChange={(e) => set('from', e.target.value)} /></label>}
           {has('to') && <label><span>{def.dateLabel ?? 'Date'} to</span><input type="date" value={filters.to ?? ''} onChange={(e) => set('to', e.target.value)} /></label>}
@@ -96,12 +122,19 @@ export default function ReportsPage() {
             </label>
           )}
         </div>
-        {active.length > 0 && <p className="muted">Showing: {active.map(describe).join(' · ')}</p>}
+        {active.length > 0 && <p className="muted">Filters: {active.map((k) => describe(k)).join(' · ')}</p>}
+        <div className="row" style={{ marginTop: '.8rem' }}>
+          <button className="btn primary" disabled={loading}>{loading ? 'Loading…' : 'View report'}</button>
+        </div>
+        </form>
       </Card>
 
       <Card title={def.title}>
         <p className="muted">{def.description}</p>
         {error && <Alert kind="error">{error}</Alert>}
+        {!data && !error && !loading && <p className="muted">Pick the filters above, then click <strong>View report</strong>.</p>}
+        {changed && <Alert kind="warning">You changed the filters. Click <strong>View report</strong> to update the report.</Alert>}
+        {data && shownActive.length > 0 && <p className="muted">Showing: {shownActive.map((k) => describe(k, shown!)).join(' · ')}</p>}
         {data && (
           <>
             <div className="tiles">
