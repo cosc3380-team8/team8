@@ -290,7 +290,7 @@ export default function CirculationPage() {
       )}
 
       {tab === 'fines' && (
-      <Card title = "fines - in - person payments">
+      <Card title = "Fines: In person payments">
          <p className="muted">Members pay fines at the desk. Choose Cash or Card on your fine to record a payment.</p>
           <DataTable rows={fines.data ?? []} empty="No fines have been issued."
             columns={[
