@@ -170,7 +170,6 @@ export default function CirculationPage() {
   const { run, banner } = useAction();
   const [memberId, setMemberId] = useState('');
   const [item, setItem] = useState('');
-  //const [method, setMethod] = useState('Cash');//
   const [isbn, setIsbn] = useState('');
   const [isbnNote, setIsbnNote] = useState('');
   const [receipt, setReceipt] = useState<ReceiptView | null>(null);
@@ -291,8 +290,8 @@ export default function CirculationPage() {
       )}
 
       {tab === 'fines' && (
-      <card title = "fines - in - person payments">
-         <p className="muted">Members pay fines at the desk. choose cash or card on a fine to record a payment.</p>
+      <Card title = "fines - in - person payments">
+         <p className="muted">Members pay fines at the desk. Choose Cash or Card on your fine to record a payment.</p>
           <DataTable rows={fines.data ?? []} empty="No fines have been issued."
             columns={[
               { header: 'Fine #', cell: (f) => f.fine_id },
