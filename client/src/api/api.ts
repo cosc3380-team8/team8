@@ -128,7 +128,7 @@ export const saveBook = async (b: Partial<Book> & { author_ids?: number[]; total
 
 export const deleteBook = (id: number) => request<void>(`/books/${id}`, 'PATCH');
 
-export const saveMedia = async (m: Partial<Media>, addCopies = 0): Promise<void> => {
+export const saveMedia = async (m: Partial<Media> & { total_copies?: number }): Promise<void> => {
   if (!m.title?.trim()) throw new Error('Title is required.');
   if (!m.media_type) throw new Error('Media type is required.');
 
@@ -137,7 +137,7 @@ export const saveMedia = async (m: Partial<Media>, addCopies = 0): Promise<void>
     title: m.title.trim(),
     media_type: m.media_type,
     is_active: m.is_active,
-    addCopies: updating ? Math.max(0, addCopies) : Math.max(1, addCopies),
+    ...(updating ? { total_copies: m.total_copies } : { addCopies: Math.max(1, m.total_copies ?? 1) }),
   });
 };
 
@@ -220,5 +220,4 @@ export const doReserveRoom = (userId: number, roomId: number, start: string, end
 export const cancelReservation = (id: number) => request<void>(`/reservations/${id}`, 'PATCH');
 
 export const runMaintenance = () => request<number>('/holds/expire', 'POST');
-
 
