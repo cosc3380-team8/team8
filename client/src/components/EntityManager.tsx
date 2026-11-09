@@ -31,9 +31,10 @@ interface Props {
   deleteLabel?: string;
   canAdd?: boolean;
   note?: string;
+  archivedLabel?: string;
 }
 
-export default function EntityManager({ title, noun, rows, idKey, fields, defaults, onSave, onDelete, reload, deleteLabel = 'Archive', canAdd = true, note }: Props) {
+export default function EntityManager({ title, noun, rows, idKey, fields, defaults, onSave, onDelete, reload, deleteLabel = 'Archive', canAdd = true, note, archivedLabel }: Props) {
   const [editing, setEditing] = useState<Record<string, any> | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [formError, setFormError] = useState('');
@@ -95,11 +96,21 @@ export default function EntityManager({ title, noun, rows, idKey, fields, defaul
     },
   ];
 
+  const archivedRows = archivedLabel ? rows.filter((r) => r.is_active === false) : [];
+  const currentRows = archivedLabel ? rows.filter((r) => r.is_active !== false) : rows;
   return (
     <Card title={title} actions={canAdd && <button className="btn primary" onClick={() => open()}>+ Add {noun.toLowerCase()}</button>}>
       {note && <p className="muted">{note}</p>}
       {banner}
-      <DataTable columns={columns} rows={rows} empty={`No ${noun.toLowerCase()} records yet.`} />
+      
+      <DataTable columns={columns} rows={currentRows} empty={archivedRows.length > 0 ? `No active ${noun.toLowerCase()} records.` : `No ${noun.toLowerCase()} records yet.`} />
+       {archivedRows.length > 0 && (
+         <details>
+           <summary>{archivedLabel} ({archivedRows.length})</summary>
+           <DataTable columns={columns} rows={archivedRows} />
+         </details>
+       )}
+
       {editing && (
         <Modal title={`${isNew ? 'Add' : 'Edit'} ${noun.toLowerCase()}`} onClose={() => setEditing(null)}>
           <form onSubmit={submit} className="form">
