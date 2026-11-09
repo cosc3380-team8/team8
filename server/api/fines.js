@@ -57,6 +57,23 @@ export async function payFine(database, fineId, { method, staffId }) {
         error.statusCode = 400;
         throw error;
     }
+    
+    // a fine can only be paid once the item is back
+    const loan = await database
+        .request()
+        .input('fineId', sql.Int, fineId)
+        .query(`
+            SELECT l.return_date
+            FROM dbo.[fine] AS f
+            JOIN dbo.[loan] AS l ON l.loan_id = f.loan_id
+            WHERE f.fine_id = @fineId
+        `);
+    if (loan.recordset.length && loan.recordset[0].return_date === null) {
+        const error = new Error('Return the item before paying this fine.');
+        error.statusCode = 400;
+        throw error;
+    }
+
 
     const result = await database
         .request()
