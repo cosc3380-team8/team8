@@ -1,10 +1,3 @@
--- team8_azure_migration_9.sql: hold expiry is now a trigger (trg_hold_expired).
--- dbo.expire_holds only marks old ready holds as 'expired'. The daily job runs it every morning.
--- That change fires trg_hold_expired: it frees the copy, gives it to the next person in line,
--- tells the member and writes to audit_log.
--- Run after team8_azure_migration_7.sql (8 is the reset button, not needed). Safe to run again.
--- Test first with team8_hold_trigger_test.sql (it rolls everything back).
-
 CREATE OR ALTER PROCEDURE dbo.expire_holds
 AS
 BEGIN
@@ -72,7 +65,6 @@ BEGIN
 END;
 GO
 
--- check: both should show 1
 SELECT
     (SELECT COUNT(*) FROM sys.triggers WHERE name = 'trg_hold_expired') AS hold_trigger_expect_1,
     (SELECT COUNT(*) FROM sys.sql_modules WHERE object_id = OBJECT_ID('dbo.expire_holds')

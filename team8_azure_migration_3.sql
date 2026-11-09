@@ -1,4 +1,3 @@
--- On Azure this column was added by hand with ALTER TABLE. On a fresh build it does not exist yet.
 IF COL_LENGTH('dbo.room_reservations', 'is_active') IS NULL
     ALTER TABLE dbo.[room_reservations] ADD [is_active] bit NULL;
 GO

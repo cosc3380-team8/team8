@@ -33,10 +33,9 @@ function PatronDashboard() {
     try { return localStorage.getItem('showNotes') !== 'false'; } catch { return true; }
   });
   useEffect(() => {
-    try { localStorage.setItem('showNotes', String(showNotes)); } catch { /* ignore */ }
+    try { localStorage.setItem('showNotes', String(showNotes)); } catch { }
   }, [showNotes]);
   const navigate = useNavigate();
-  // single click toggles alerts, double click opens notifications
   const clickTimer = useRef<number>();
   const onBellClick = () => {
     window.clearTimeout(clickTimer.current);
@@ -50,7 +49,6 @@ function PatronDashboard() {
   const reloadAll = () => { loans.reload(); holds.reload(); fines.reload(); rooms.reload(); };
   const unread = (notes.data ?? []).filter((n) => !n.is_read);
   const unpaid = (fines.data ?? []).filter((f) => f.paid_status === 'unpaid');
-  // the fine on a late item that is still out (it grows $1 each week, see team8_azure_migration_7.sql)
   const fineFor = (loanId: number) => (fines.data ?? []).find((f) => f.loan_id === loanId);
 
   const active = loans.data ?? [];

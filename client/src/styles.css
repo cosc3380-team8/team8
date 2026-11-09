@@ -29,10 +29,8 @@ nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .content { padding: 1.5rem 2rem 3rem; max-width: 1200px; width: 100%; }
 .nav-closed .content { padding-right: 4.5rem; }
 .content-area .page-header { background: rgba(255,255,255,.9); border-radius: var(--radius); padding: .8rem 1rem; }
-/* tabs sit on the background picture too, so give them the same white box */
 .content-area .tabs { background: rgba(255,255,255,.9); border-radius: var(--radius); padding: .3rem; width: fit-content; max-width: 100%; box-sizing: border-box; }
 .content-area .tab:not(.active) { color: var(--text); }
-/* menu button, top right */
 .nav-toggle { position: fixed; top: .8rem; right: .8rem; z-index: 30; width: 2.6rem; height: 2.6rem; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px; background: var(--brand-dark); border: 1px solid rgba(255,255,255,.35); border-radius: 8px; cursor: pointer; padding: 0; }
 .nav-toggle span { display: block; width: 1.3rem; height: 2px; background: #fff; border-radius: 2px; }
 .nav-toggle:hover { background: var(--brand); }
@@ -114,13 +112,11 @@ details summary { cursor: pointer; color: var(--brand); margin-top: .8rem; }
 .login-wrap { position: relative; z-index: 1; width: min(460px, 100%); display: flex; flex-direction: column; align-items: center; }
 .login-card { position: relative; z-index: 2; background: #fff; border-radius: 14px; padding: 1.6rem 2rem 2rem; width: 100%; box-shadow: 0 18px 40px rgba(30, 70, 120, .25); }
 
-/* sky + clouds */
 .sky-layer { position: absolute; inset: 0; pointer-events: none; }
 .sun { position: absolute; top: 6%; right: 8%; width: 110px; height: 110px; border-radius: 50%;
   background: radial-gradient(circle, #fff6c9 0%, #ffe27a 55%, rgba(255, 226, 122, 0) 72%); }
 .sky-cloud { position: absolute; height: auto; }
 
-/* mascot (transparent cutout) lying on top of the cloud */
 .mascot-cloud { position: relative; width: min(480px, 104%); aspect-ratio: 1400 / 1040; margin: 1rem 0 -54px; z-index: 1; }
 .mascot-cloud .cloud-img { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
 .mascot-cloud .mascot-img { position: absolute; left: 11%; bottom: 38%; width: 78%; height: auto; z-index: 1; filter: drop-shadow(0 4px 6px rgba(30, 70, 120, .25)); }
@@ -148,13 +144,10 @@ details summary { cursor: pointer; color: var(--brand); margin-top: .8rem; }
 
 .auth-switch { text-align: center; margin-top: 1rem; font-size: .95rem; } .auth-switch a { color: #8c1c1c; font-weight: 600; }
 
-
-/* login page: fixed snoopy background */
 .login-page.snoopy-bg { background: #c98a3c; }
 .login-page.snoopy-bg::before { content: ''; position: fixed; inset: 0; z-index: 0;
   background: url('/snoopy-bus.png') center / cover no-repeat; }
 
-/* bell toggle next to welcome title */
 .title-row { display: flex; align-items: center; gap: .6rem; }
 .bell-toggle { position: relative; width: 2.3rem; height: 2.3rem; border-radius: 50%; border: 2px solid var(--brand-line); background: var(--brand-tint); color: var(--brand); cursor: pointer; padding: 0; display: grid; place-items: center; transition: transform .15s; }
 .bell-toggle:hover { transform: rotate(-12deg) scale(1.08); background: #fff; }

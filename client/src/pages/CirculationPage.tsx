@@ -24,7 +24,6 @@ export default function CirculationPage() {
   const [isbnNote, setIsbnNote] = useState('');
   const [receipt, setReceipt] = useState<ReceiptView | null>(null);
   const [confirmPay, setConfirmPay] = useState<{ fine: FineView; method: string; fromReturn?: boolean } | null>(null);
-  // fine from a late return; staff must pick cash or card
   const [payNow, setPayNow] = useState<FineView | null>(null);
   const { session } = useAuth();
 
@@ -38,7 +37,6 @@ export default function CirculationPage() {
 
   const activeMembers = (members.data ?? []).filter((m) => m.is_active);
 
-  // pick item by isbn
   const lookupIsbn = (value: string) => {
     setIsbn(value);
     const clean = (s: string) => s.replace(/[^0-9Xx]/g, '').toUpperCase();
@@ -113,7 +111,6 @@ export default function CirculationPage() {
               { header: '', cell: (l) => <button className="btn small primary" onClick={() => run(async () => {
                   const r = await api.doReturn(l.loan_id);
                   if (r.fine) {
-                    // late return: staff must collect the fine by cash or card
                     const fine = (await api.listFines()).find((x) => x.fine_id === r.fine!.fine_id);
                     if (fine && fine.paid_status === 'unpaid') setPayNow(fine);
                     return { warning: `“${l.title}” returned late. The final fine is ${money(r.fine.amount)}.` };
@@ -138,7 +135,6 @@ export default function CirculationPage() {
               { header: 'Pick up by', cell: (h) => h.status === 'ready' ? fmtDate(h.expiration_date) : '—' },
               { header: '', cell: (h) => (
                 <div className="row gap">
-                  {/* a ready hold: check out the copy set aside for this member */}
                   {h.status === 'ready' && <button className="btn small primary" onClick={() => run(async () =>
                     `Checked out to ${h.member_name}. Due ${fmtDate((await api.doCheckout(h.user_id, h.kind, Number(h.kind === 'book' ? h.book_id : h.media_id))).due_date)}.`,
                     'Checked out.', reloadAll)}>Check out</button>}

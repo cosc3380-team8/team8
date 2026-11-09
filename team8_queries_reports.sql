@@ -126,7 +126,6 @@ GROUP BY u.is_faculty
 ORDER BY [Role] DESC;
 GO
 
--- hold queue for one item (Queries tab). Set one of the two ids, leave the other NULL.
 DECLARE @book_id int = 1;
 DECLARE @media_id int = NULL;
 
@@ -143,14 +142,13 @@ WHERE w.status IN ('waiting', 'ready')
 ORDER BY CASE w.status WHEN 'ready' THEN 0 ELSE 1 END, w.request_time, w.waitlist_id;
 GO
 
--- personalized loan history (Reports tab). NULL filter = no filter.
 DECLARE @from date = '2026-06-01';
 DECLARE @to date = '2026-12-31';
 DECLARE @user_id int = NULL;
-DECLARE @role nvarchar(10) = NULL;      -- 'student', 'faculty' or NULL
+DECLARE @role nvarchar(10) = NULL;
 DECLARE @author_id int = NULL;
 DECLARE @keyword nvarchar(100) = NULL;
-DECLARE @kind nvarchar(10) = NULL;      -- 'book', 'media' or NULL
+DECLARE @kind nvarchar(10) = NULL;
 DECLARE @today date = CAST(GETDATE() AS date);
 
 SELECT l.loan_id AS [Loan #],
@@ -182,7 +180,6 @@ WHERE l.borrow_date BETWEEN @from AND @to
 ORDER BY l.borrow_date DESC, l.loan_id DESC;
 GO
 
--- borrowing by author (Reports tab). Books only.
 DECLARE @from date = '2026-06-01';
 DECLARE @to date = '2026-12-31';
 DECLARE @user_id int = NULL;
@@ -206,7 +203,6 @@ GROUP BY a.author_id, a.first_name, a.last_name
 ORDER BY [Loans] DESC, [Author];
 GO
 
--- inventory status (Reports tab). Active titles and active copies only.
 DECLARE @author_id int = NULL;
 DECLARE @keyword nvarchar(100) = NULL;
 DECLARE @kind nvarchar(10) = NULL;

@@ -3,7 +3,6 @@ import sql from 'mssql'
 const DATE_COLUMNS = new Set(['Borrowed', 'Due', 'Returned', 'Requested', 'Pick up by']);
 const MONEY_COLUMNS = new Set(['Projected fine', 'Fine', 'Amount paid', 'Assessed', 'Collected', 'Outstanding']);
 
-// same date and money formats as the rest of the app
 function formatCell(column, value) {
     if (value === null || value === undefined) {
         return '—';
@@ -21,18 +20,15 @@ function toTable(recordset) {
     return { columns, rows };
 }
 
-// detail rows under a report, with the tables they were read from
 function toDetails(recordset, source, keep = () => true) {
     const columns = Object.keys(recordset.columns);
     const rows = recordset.filter(keep).map((row) => columns.map((column) => formatCell(column, row[column])));
     return { columns, rows, source };
 }
 
-// stored in UTC, shown in Houston time
 const localTime = (column) =>
     `FORMAT(${column} AT TIME ZONE 'UTC' AT TIME ZONE 'Central Standard Time', 'MM-dd-yyyy hh:mm tt')`;
 
-// loans only store a date, so the exact time comes from the audit log entry the trigger wrote
 const auditTime = (trigger) => `(
                     SELECT TOP 1 ${localTime('al.logged_at')}
                     FROM audit_log AS al
@@ -67,7 +63,6 @@ const LOAN_COLUMNS = `
 
 const LOAN_SOURCE = 'loan, user, copies, book, media, fine, audit_log';
 
-// every loan behind the report, using the same filters as its summary
 async function loanDetails(database, f, keep) {
     const result = await withFilters(database.request(), f)
         .query(`
@@ -85,7 +80,6 @@ async function loanDetails(database, f, keep) {
     return toDetails(result.recordset, LOAN_SOURCE, keep);
 }
 
-// one row per payment, so partly paid fines show each payment
 async function fineDetails(database, f) {
     const result = await withFilters(database.request(), f)
         .query(`
@@ -124,7 +118,6 @@ async function fineDetails(database, f) {
     return toDetails(result.recordset, 'fine_status, fine, payments, receipts, staff, loan, user, copies, book, media');
 }
 
-// members with no matching loans stay listed because the summary counts them
 async function activityDetails(database, f) {
     const result = await withFilters(database.request(), f)
         .query(`
@@ -149,7 +142,6 @@ async function activityDetails(database, f) {
     return toDetails(result.recordset, LOAN_SOURCE);
 }
 
-// one row per author per loan, so a book with two authors appears twice like in the summary
 async function authorDetails(database, f) {
     const result = await withFilters(database.request(), f)
         .query(`
@@ -170,7 +162,6 @@ async function authorDetails(database, f) {
     return toDetails(result.recordset, `${LOAN_SOURCE}, author, book_author`);
 }
 
-// one row per copy, with who has it right now
 async function inventoryDetails(database, f) {
     const result = await withFilters(database.request(), f)
         .query(`
@@ -223,7 +214,6 @@ function readDate(value, fallback) {
     return value;
 }
 
-// % _ [ are wildcards in LIKE; wrap them so a search for "%" finds a real %
 const likeSafe = (s) => (s ? String(s).replace(/[[%_]/g, '[$&]') : s);
 
 const money = (n) => `$${Number(n || 0).toFixed(2)}`;

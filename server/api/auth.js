@@ -34,11 +34,8 @@ export async function login(database, email, password) {
         throw badRequest('Invalid email or password.');
     }
 
-    // release holds that were not picked up in time
     await database.request().execute('dbo.expire_holds').catch((error) => console.error('Error expiring holds:', error));
-    // send "must be returned in 2 days" notifications (each loan only once)
     await database.request().execute('dbo.send_due_reminders').catch((error) => console.error('Error sending due reminders:', error));
-    // late fines grow $1 each week: set today's fine and tell the member when it goes up (migration 7)
     await database.request().execute('dbo.update_overdue_fines').catch((error) => console.error('Error updating overdue fines:', error));
 
     const session = {

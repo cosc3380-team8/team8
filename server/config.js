@@ -21,7 +21,6 @@ export async function getSqlConfig() {
     throw new Error ('Could not obtain Azure SQL access token');
   }
   
-  // Create configuration object for Azure SQL connection
   return {
       expiresOnTimestamp,
       config: {

@@ -29,7 +29,6 @@ export async function placeHold(database, { userId, kind, itemId }) {
   if (!member_ok) throw badRequest('Member not found or account is inactive.');
   if (!item_ok) throw badRequest('This title is archived and cannot be held.');
   if (dup) throw badRequest('You already have a hold on this item.');
-  // students can have 3 holds at once, faculty 6
   if (active_holds >= hold_limit) throw badRequest(`You can have at most ${hold_limit} active holds.`);
 
   const result = await database.request()
@@ -40,7 +39,6 @@ export async function placeHold(database, { userId, kind, itemId }) {
       SELECT CAST(SCOPE_IDENTITY() AS int) AS hold_id;
     `);
 
-  // a free copy goes straight to the front of the queue
   await database.request()
     .input('p_book_id', sql.Int, kind === 'book' ? itemId : null)
     .input('p_media_id', sql.Int, kind === 'media' ? itemId : null)

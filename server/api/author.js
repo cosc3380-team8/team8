@@ -30,7 +30,6 @@ export async function saveAuthor(database, author) {
     const { first_name, last_name } = author;
 
     try {
-        // Check if the author already exists
         const existingAuthor = await database
             .request()
             .input('first_name', sql.NVarChar(50), first_name)
@@ -90,7 +89,6 @@ export async function updateAuthor(database, author_id, author) {
 
 export async function deleteAuthor(database, author_id) {
     try {
-        // Check if the author is associated with any books
         const result = await database
             .request()
             .input('author_id', sql.Int, author_id)

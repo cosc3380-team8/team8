@@ -1,6 +1,5 @@
 import sql from 'mssql'
 
-// reservations are stored in Houston time; the database clock is UTC
 export const LOCAL_NOW = "CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'Central Standard Time' AS datetime2(0))";
 
 export async function listReservations(database, user_id) {

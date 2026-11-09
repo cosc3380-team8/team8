@@ -1,5 +1,3 @@
-
-
 import { useEffect } from 'react';
 import * as api from '../api/api';
 import { useAuth } from '../auth/AuthContext';
@@ -19,7 +17,6 @@ export default function NotificationsPage() {
   const uid = session!.id;
   const list = useLoad(() => api.listNotifications(uid), [uid]);
 
-  // mark all read on open
   useEffect(() => {
     if (list.data?.some((n) => !n.is_read)) {
       api.markNotificationsRead(uid).then(() => window.dispatchEvent(new Event('notifications-changed')));

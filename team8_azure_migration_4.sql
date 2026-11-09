@@ -1,6 +1,3 @@
--- Run after team8_azure_migration.sql, _2, _3 and team8_azure_procedures.sql.
--- holds: add 'ready' and 'expired', plus the pick-up dates and the copy set aside
-
 DECLARE @waitlist_chk sysname = (
     SELECT name FROM sys.check_constraints
     WHERE parent_object_id = OBJECT_ID('dbo.waitlist') AND definition LIKE '%status%');
@@ -16,12 +13,9 @@ ALTER TABLE dbo.[waitlist] ADD
     [held_copy_id] int NULL CONSTRAINT [waitlist_ibfk_4] FOREIGN KEY REFERENCES dbo.[copies] ([copy_id]);
 GO
 
-    
--- the app says faculty get 30 days; the database had 25. existing loans keep their due dates.
 UPDATE dbo.[borrow_policy] SET [loan_days] = 30 WHERE [is_faculty] = 1;
 GO
 
--- gives a free copy to the earliest waiting hold for 3 days
 CREATE OR ALTER PROCEDURE dbo.promote_next_hold
     @p_book_id int,
     @p_media_id int
@@ -72,7 +66,6 @@ BEGIN
 END;
 GO
 
--- cancels or expires a hold; a copy that was set aside goes to the next person
 CREATE OR ALTER PROCEDURE dbo.release_hold
     @p_hold_id int,
     @p_status nvarchar(9)
@@ -125,7 +118,6 @@ BEGIN
 END;
 GO
 
--- a member's ready hold uses the copy set aside for them
 CREATE OR ALTER PROCEDURE dbo.checkout_item
     @p_user_id int,
     @p_book_id int,

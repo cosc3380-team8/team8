@@ -1,30 +1,16 @@
--- Part 1 and part 2 were applied on Azure on Nov 6 2026.
--- Run after team8_azure_migration_4.sql. Part 1 is safe to run again (it only re-sets the same rows).
--- Part 1 archives junk test rows (is_active = 0, nothing is deleted), un-archives To Kill a Mockingbird,
--- and blocks room bookings in the past, for archived rooms, or by deactivated members.
--- Part 2 makes "today" Houston time. GETDATE() on Azure is UTC, so after 6 PM it was already tomorrow.
--- Part 2 is Esther's procedures from migration 4 with only the date lines changed.
-
--- part 1: test rows
 UPDATE dbo.[book]   SET [is_active] = 0 WHERE [book_id] = 24 AND [title] = N'white nigths';
 UPDATE dbo.[media]  SET [is_active] = 0 WHERE [media_id] = 6 AND [title] = N'haha';
--- archived titles still had lendable copies; archive the copies that are on the shelf
 UPDATE dbo.[copies] SET [is_active] = 0
 WHERE [is_available] = 1 AND ([book_id] = 24 OR [media_id] IN (5, 6));
 GO
 
--- part 1: Mockingbird was archived while loan 39 (Omar) is still out
 UPDATE dbo.[book] SET [is_active] = 1 WHERE [book_id] = 7 AND [title] = N'To Kill a Mockingbird';
 GO
 
--- part 1: test holds 6-14 (Esther, Ben, Aliza, clicked while holds were broken). They fill each
--- account's 3-hold limit, so the hold demo fails. Cancel them (status only, nothing is deleted).
 UPDATE dbo.[waitlist] SET [status] = N'cancelled'
 WHERE [waitlist_id] BETWEEN 6 AND 14 AND [status] = N'waiting';
 GO
 
--- part 1: room bookings. Same as migration 3, plus 3 new checks:
--- no archived rooms, no deactivated members, no start time in the past (Houston time).
 CREATE OR ALTER PROCEDURE dbo.save_room_reservation
     @p_reservation_id int,
     @p_user_id int,
@@ -91,8 +77,6 @@ BEGIN
 END;
 GO
 
--- part 2: Houston date
--- gives a free copy to the earliest waiting hold for 3 days
 CREATE OR ALTER PROCEDURE dbo.promote_next_hold
     @p_book_id int,
     @p_media_id int
@@ -143,7 +127,6 @@ BEGIN
 END;
 GO
 
--- cancels or expires a hold; a copy that was set aside goes to the next person
 CREATE OR ALTER PROCEDURE dbo.release_hold
     @p_hold_id int,
     @p_status nvarchar(9)
@@ -196,7 +179,6 @@ BEGIN
 END;
 GO
 
--- a member's ready hold uses the copy set aside for them
 CREATE OR ALTER PROCEDURE dbo.checkout_item
     @p_user_id int,
     @p_book_id int,

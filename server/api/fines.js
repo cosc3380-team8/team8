@@ -3,7 +3,6 @@ import { getReceipt } from './receipts.js';
 
 export async function listFines(database, { userId } = {}) {
     try {
-        // today's fine for late items still out, so the list never shows an old amount (migration 7)
         await database.request().execute('dbo.update_overdue_fines').catch((error) => console.error('Error updating overdue fines:', error));
         const result = await database
             .request()
@@ -58,7 +57,6 @@ export async function payFine(database, fineId, { method, staffId }) {
         throw error;
     }
     
-    // a fine can only be paid once the item is back
     const loan = await database
         .request()
         .input('fineId', sql.Int, fineId)
@@ -73,7 +71,6 @@ export async function payFine(database, fineId, { method, staffId }) {
         error.statusCode = 400;
         throw error;
     }
-
 
     const result = await database
         .request()

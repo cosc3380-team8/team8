@@ -1,7 +1,5 @@
 import sql from 'mssql';
 
-// Vercel runs this every morning (see vercel.json). expire_holds marks old holds expired,
-// which fires trg_hold_expired. Running it twice in a day changes nothing.
 export async function runDailyJobs(database) {
     const start = await database.request()
         .query('SELECT ISNULL(MAX(log_id), 0) AS last_id FROM dbo.audit_log');
@@ -11,7 +9,6 @@ export async function runDailyJobs(database) {
     await database.request().execute('dbo.send_due_reminders');
     await database.request().execute('dbo.update_overdue_fines');
 
-    // what changed, written to the audit log so it can be shown in DataGrip
     const result = await database.request()
         .input('lastId', sql.Int, lastId)
         .input('expired', sql.Int, holds.recordset?.[0]?.expired ?? 0)

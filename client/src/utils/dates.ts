@@ -6,7 +6,6 @@ export function today(): string {
   return toIso(new Date());
 }
 
-// now for today, else a random time in library hours (9am-7pm) on that day
 export function stampFor(iso: string): string {
   if (iso >= today()) return new Date().toISOString();
   const d = parseIso(iso);

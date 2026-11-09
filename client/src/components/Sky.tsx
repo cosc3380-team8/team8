@@ -1,6 +1,3 @@
-// sky, clouds, and mascot
-
-// background clouds (left/top in %, width in px)
 const CLOUDS = [
   { left: '-3%', top: '4%', width: 220, opacity: 0.95 },
   { left: '70%', top: '20%', width: 120, opacity: 0.85 },

@@ -11,7 +11,6 @@ export default function Layout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [unread, setUnread] = useState(0);
-  // phone width (same breakpoint as styles.css): menu starts closed and closes after picking a page
   const isPhone = () => window.matchMedia('(max-width: 800px)').matches;
   const [navOpen, setNavOpen] = useState(() => {
     if (isPhone()) return false;
@@ -19,8 +18,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    if (isPhone()) return; // only remember the desktop choice
-    try { localStorage.setItem('navOpen', String(navOpen)); } catch { /* ignore */ }
+    if (isPhone()) return;
+    try { localStorage.setItem('navOpen', String(navOpen)); } catch { }
   }, [navOpen]);
 
   useEffect(() => {

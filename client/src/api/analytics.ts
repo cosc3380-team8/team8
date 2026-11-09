@@ -6,7 +6,6 @@ export interface QueryDef {
   id: string; title: string; description: string; sql: string; params: ParamDef[];
 }
 
-
 const LOAN_ITEM_JOIN = `FROM loans l
 JOIN members u            ON u.user_id = l.user_id
 LEFT JOIN book_copies bc  ON bc.copy_id = l.book_copy_id
@@ -92,7 +91,6 @@ export interface ReportDef {
 
 const LOAN_FILTERS: FilterKey[] = ['from', 'to', 'userId', 'role', 'authorId', 'keyword', 'kind'];
 
-// where lines for active filters
 function loanWhere(f: ReportFilters, dateCol: string, extra: string[] = []): string {
   const w = [...extra];
   if (f.from) w.push(`${dateCol} >= @from`);
@@ -247,7 +245,6 @@ export async function runReport(id: string, f: ReportFilters = {}): Promise<Repo
   const def = REPORTS.find((r) => r.id === id);
   if (!def) throw new Error('Unknown report.');
   if (f.from && f.to && f.from > f.to) throw new Error('The start date must be before the end date.');
-  // skip unsupported filters
   const used: ReportFilters = {};
   def.filters.forEach((k) => { if (f[k]) used[k] = f[k]; });
   return request<ReportResult>(`/reports/${id}${toSearch({ ...used })}`);

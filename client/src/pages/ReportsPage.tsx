@@ -16,18 +16,16 @@ export default function ReportsPage() {
   const [id, setId] = useState(REPORTS[0].id);
   const [filters, setFilters] = useState<ReportFilters>({});
   const [data, setData] = useState<ReportResult | null>(null);
-  // the filters the report on screen was made with (null = nothing shown yet)
   const [shown, setShown] = useState<ReportFilters | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const run = useRef(0); // stops an old answer from showing after you switch reports
+  const run = useRef(0);
   const members = useLoad(api.listMembers);
   const authors = useLoad(api.listReportAuthors);
   const def = REPORTS.find((r) => r.id === id)!;
   const has = (k: keyof ReportFilters) => def.filters.includes(k);
   const set = (k: keyof ReportFilters, v: string) => setFilters((f) => ({ ...f, [k]: v || undefined }));
 
-  // Uma: reports don't load by themselves. Pick the filters, then click "View report".
   const pick = (next: string) => { run.current++; setId(next); setData(null); setShown(null); setError(''); setLoading(false); };
 
   const view = async (e?: FormEvent) => {
@@ -53,7 +51,6 @@ export default function ReportsPage() {
   const max = Math.max(1, ...(data?.chart?.values ?? [0]));
   const active = def.filters.filter((k) => filters[k]);
   const shownActive = def.filters.filter((k) => shown?.[k]);
-  // the filters were changed after the report was made
   const changed = shown !== null && def.filters.some((k) => (shown[k] ?? '') !== (filters[k] ?? ''));
   const describe = (k: keyof ReportFilters, from: ReportFilters = filters): string => {
     const v = from[k]!;

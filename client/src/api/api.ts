@@ -15,7 +15,6 @@ function authHeader(): Record<string, string> {
   }
 }
 
-// every server call goes through here; the server sends { error } on failure
 export async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
   const response = await fetch(`${API}${path}`, {
     method,
@@ -60,7 +59,6 @@ export const listHolds = (opts: { userId?: number; activeOnly?: boolean } = {}) 
 
 export const listFines = (userId?: number) => request<FineView[]>(`/fines${query({ user_id: userId })}`);
 
-// archive reservations past end time
 export const listReservations = (userId?: number) =>
   request<ReservationView[]>(`/reservations${query({ user_id: userId })}`);
 
@@ -75,7 +73,6 @@ export const markNotificationsRead = (userId: number) =>
 
 const digitsOnly = (v: string) => v.replace(/[^0-9Xx]/g, '').toUpperCase();
 
-// receipts + transactions (members see only their own)
 export const listReceipts = (opts: { userId?: number; search?: string } = {}) =>
   request<ReceiptView[]>(`/receipts${query({ user_id: opts.userId, search: opts.search?.trim() || undefined })}`);
 

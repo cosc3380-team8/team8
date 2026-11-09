@@ -37,7 +37,6 @@ export async function listMembers(database) {
 
 export async function saveMember(database, member) {
     const session = await createMember(database, member);
-    // the Add form has an Active box; new accounts are active unless it was unticked
     if (member.is_active === false) {
         await database.request()
             .input('userId', sql.Int, session.id)
@@ -97,7 +96,6 @@ export async function updateMember(database, userId, member) {
     if (member.is_active === false) await cancelActiveHolds(database, userId);
 }
 
-// a deactivated member can't pick anything up, so their holds go to the next person
 async function cancelActiveHolds(database, userId) {
     const holds = await database
         .request()

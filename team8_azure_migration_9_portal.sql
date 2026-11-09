@@ -1,7 +1,3 @@
--- team8_azure_migration_9_portal.sql: the same as team8_azure_migration_9.sql, for the Azure portal
--- query editor (it can't run GO lines). Paste all of it and click Run.
--- If any part fails, nothing is saved. The result should show 1 and 1.
-
 SET XACT_ABORT ON;
 BEGIN TRANSACTION;
 

@@ -94,8 +94,6 @@ export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { id: 
   );
 }
 
-// Shared load state: tables say "Loading…" instead of "Nothing to show" while data is on the way,
-// and Layout shows load errors (pages used to stay empty with no message).
 let pendingLoads = 0;
 let nextLoadId = 0;
 const loadErrors = new Map<number, string>();
@@ -139,7 +137,6 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[] = []) {
 
 export function useAction() {
   const [msg, setMsg] = useState<{ kind: 'success' | 'error' | 'warning'; text: string } | null>(null);
-  // fn can return a string to replace the success text, or { warning } for an amber note
   const run = async (fn: () => Promise<unknown>, success: string, after?: () => void) => {
     try {
       const r = await fn();

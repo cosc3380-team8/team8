@@ -65,7 +65,6 @@ export async function addBook(database, book) {
         addCopies = 1
     } = book;
 
-    // same rule as the website form: 10 or 13 digits (the website strips dashes before sending)
     if (isbn && !/^(\d{10}|\d{13})$/.test(String(isbn))) {
         throw Object.assign(new Error('ISBN must be 10 or 13 digits.'), { statusCode: 400 });
     }
@@ -76,7 +75,6 @@ export async function addBook(database, book) {
     try {
         await transaction.begin();
 
-        // Add the book in the book table
         const result = await new sql.Request(transaction)
             .input('title', sql.NVarChar(150), title.trim())
             .input('publisher', sql.NVarChar(100), publisher)
@@ -90,7 +88,6 @@ export async function addBook(database, book) {
 
         const bookId = result.recordset[0].book_id;
         
-        // Link the book to its author(s) in book_author
         for (const authorId of authorIds) {
             await new sql.Request(transaction)
                 .input('book_id', sql.Int, bookId)
@@ -101,7 +98,6 @@ export async function addBook(database, book) {
                 `);
         }
 
-        // Add number of copies in the copies table
         for (let i = 0; i < addCopies; i++) {
             await new sql.Request(transaction)
                 .input('book_id', sql.Int, bookId)
@@ -143,7 +139,6 @@ export async function updateBook(database, book) {
         throw Object.assign(new Error('Total copies must be a whole number from 0 to 1000.'), { statusCode: 400 });
     }
 
-    // same rule as the website form: 10 or 13 digits (the website strips dashes before sending)
     if (isbn && !/^(\d{10}|\d{13})$/.test(String(isbn))) {
         throw Object.assign(new Error('ISBN must be 10 or 13 digits.'), { statusCode: 400 });
     }
@@ -155,7 +150,6 @@ export async function updateBook(database, book) {
     try {
         await transaction.begin();
 
-        // same rule as the Archive button: no archiving while a copy is on loan or held
         if (!is_active) {
             const out = await new sql.Request(transaction)
                 .input('book_id', sql.Int, book_id)
@@ -170,7 +164,6 @@ export async function updateBook(database, book) {
             }
         }
 
-        // Check if book with the same ISBN already exists
         const sameBook = await new sql.Request(transaction)
             .input('isbn', sql.NVarChar, isbn)
             .input('book_id', sql.Int, book_id)
@@ -202,14 +195,12 @@ export async function updateBook(database, book) {
             WHERE book_id = @book_id
         `);
 
-        // Check if book id exists
         if (result.rowsAffected[0] === 0) {
             throw Object.assign(new Error("Book not found."), 
             { statusCode: 404 }
             );
         }
 
-        // Check if authors have changed and update book_authors if needed
         const authorResults = await new sql.Request(transaction)
             .input('book_id', sql.Int, book_id)
             .query(`
@@ -247,7 +238,6 @@ export async function updateBook(database, book) {
             }
         }
         
-        // Set the total: add copies, or retire available ones (a retired copy keeps its loan history)
         let copiesToAdd = addCopies;
         if (totalCopies !== undefined) {
             const current = await new sql.Request(transaction)
@@ -281,7 +271,6 @@ export async function updateBook(database, book) {
             }
         }
 
-        // Add copies if needed
         if (copiesToAdd > 0) {
             for (let i = 0; i < copiesToAdd; i++) {
                 await new sql.Request(transaction)
@@ -295,7 +284,6 @@ export async function updateBook(database, book) {
             }
         }
 
-        // new copies go to waiting holds first (one hold per copy)
         if (copiesToAdd > 0 && is_active) {
             for (let i = 0; i < copiesToAdd; i++) {
                 await new sql.Request(transaction)

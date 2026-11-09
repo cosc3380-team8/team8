@@ -114,7 +114,6 @@ export async function updateRoom(database, room_id, room) {
     }
 
     try {
-        // Check if room already exists
         const existingRoom = await database
             .request()
             .input('room_id', sql.Int, room_id)
@@ -148,7 +147,6 @@ export async function updateRoom(database, room_id, room) {
                 WHERE room_id = @room_id
             `);
 
-        // Check if room id exists
         if (result.rowsAffected[0] === 0) {
             throw Object.assign(new Error("Room not found."), 
             { statusCode: 404 }

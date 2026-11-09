@@ -27,7 +27,6 @@ let pool;
 let poolExpiresAt = 0;
 let poolRefresh;
 
-// Create a new pool connection for every request
 async function getDatabase() {
   if (pool && Date.now() < poolExpiresAt - 5 * 60 * 1000) {
     return pool;
@@ -57,7 +56,6 @@ async function getDatabase() {
   return poolRefresh;
 }
 
-// Read a JSON request body (Vercel may have parsed it already)
 async function readJson(req) {
     if (req.body !== undefined) {
         return typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body;
@@ -83,7 +81,6 @@ function currentUser(req) {
     }
 }
 
-// Who may call a route; null means anyone who is signed in
 function allowedRoles(method, path) {
     if (/^\/(staff|audit|queries|reports|report-authors)(\/|$)/.test(path)) return ['admin'];
     if (method === 'POST' && path === '/members') return ['admin'];
@@ -94,14 +91,12 @@ function allowedRoles(method, path) {
     return null;
 }
 
-// Members can only read and change their own records
 function assertSelf(user, userId) {
     if (!STAFF.includes(user.role) && Number(userId) !== user.id) {
         throw Object.assign(new Error('You can only view your own records.'), { statusCode: 403 });
     }
 }
 
-// Messages thrown by our procedures and triggers are written for the user
 function describeError(error, fallback) {
     const number = error.number ?? error.originalError?.info?.number;
     if (number >= 50000) {
@@ -114,7 +109,6 @@ function describeError(error, fallback) {
     return { status, message: status < 500 ? error.message : fallback };
 }
 
-// Connect, run a handler, and send its result (204 when it has none)
 async function respond(res, successStatus, fallback, handler) {
     try {
         const database = await getDatabase();
@@ -134,7 +128,6 @@ async function respond(res, successStatus, fallback, handler) {
     }
 }
 
-// Create the server and handle requests
 const server = http.createServer(async (req, res) => {
     let baseUrl = "http://localhost";
     const origin = req.headers.origin;
@@ -156,10 +149,6 @@ const server = http.createServer(async (req, res) => {
 
     const url = new URL(req.url, baseUrl);
 
-    // Vercel Cron calls this by itself once a day (see vercel.json), so late fines go up even when
-    // nobody logs in. No login needed: it only runs the 3 procedures that every login already runs,
-    // and running them twice in one day changes nothing. If CRON_SECRET is set on Vercel, only
-    // Vercel's cron (which sends that secret) can call it.
     if (req.method === 'GET' && url.pathname === '/cron/daily') {
         if (process.env.CRON_SECRET && req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
             res.writeHead(401, { 'Content-Type': 'application/json' });
@@ -181,7 +170,6 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    // Route handlers for books
     if (req.method === 'GET' && url.pathname === '/books') {
         try {
             const database = await getDatabase();
@@ -278,7 +266,6 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // Route handlers for authors
     else if (req.method === 'GET' && url.pathname === '/authors') {
         try {
             const database = await getDatabase();
@@ -377,7 +364,6 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // Route handlers for media
     else if (req.method === 'GET' && url.pathname === '/media') {
         try {
             const database = await getDatabase();
@@ -475,7 +461,6 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // Route handlers for loans
     else if (req.method === 'GET' && url.pathname === '/loans') {
         try {
             const database = await getDatabase();
@@ -511,7 +496,6 @@ const server = http.createServer(async (req, res) => {
         return respond(res, 200, 'An error occurred while returning this item.', (database) => returnLoan(database, loanId));
     }
         
-    // Route handlers for rooms
     else if (req.method === 'GET' && url.pathname === '/rooms') {
         try {
             const database = await getDatabase();
@@ -608,7 +592,6 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // Route handlers for reservations
     else if (req.method === 'GET' && url.pathname === '/reservations') {
         const rawUserId = url.searchParams.get('user_id');
         const userId = rawUserId === null ? undefined : Number(rawUserId);
@@ -632,7 +615,7 @@ const server = http.createServer(async (req, res) => {
     else if (req.method === 'POST' && url.pathname === '/reservations') {
         try {
             const body = await readJson(req);
-            body.reservation_id = null; // Ensure reservation_id is null for new reservations
+            body.reservation_id = null;
             assertSelf(user, body.userId);
 
             const database = await getDatabase();
@@ -673,7 +656,6 @@ const server = http.createServer(async (req, res) => {
         }
         return;
     }
-    // Route handlers for members
     else if (req.method === 'GET' && url.pathname === '/members') {
         try {
             const database = await getDatabase();
@@ -710,7 +692,6 @@ const server = http.createServer(async (req, res) => {
         return respond(res, 204, 'An error occurred while deactivating this member.', (database) => deleteMember(database, userId));
     }
 
-    // Route handlers for staff
     else if (req.method === 'GET' && url.pathname === '/staff') {
         try {
             const database = await getDatabase();
@@ -748,7 +729,6 @@ const server = http.createServer(async (req, res) => {
         return respond(res, 204, 'An error occurred while deactivating this staff member.', (database) => deleteStaff(database, staffId));
     }
 
-    // Route handlers for the audit log and dashboard
     else if (req.method === 'GET' && url.pathname === '/audit') {
         return respond(res, 200, 'An error occurred while fetching the audit log.', listAudit);
     }
@@ -756,7 +736,6 @@ const server = http.createServer(async (req, res) => {
         return respond(res, 200, 'An error occurred while fetching dashboard stats.', dashboardStats);
     }
 
-    // Route handlers for notifications
     else if (req.method === 'GET' && url.pathname === '/notifications') {
         const userId = Number(url.searchParams.get('user_id'));
         return respond(res, 200, 'An error occurred while fetching notifications.', (database) => {
@@ -779,7 +758,6 @@ const server = http.createServer(async (req, res) => {
         });
     }
 
-    // Route handlers for receipts
     else if (req.method === 'GET' && url.pathname === '/receipts') {
         const rawUserId = url.searchParams.get('user_id');
         return respond(res, 200, 'An error occurred while fetching receipts.', (database) => {
@@ -842,7 +820,6 @@ const server = http.createServer(async (req, res) => {
         }
         return;
     }
-        //added
     else if (req.method === 'POST' && url.pathname === '/holds') {
     try {
         const database = await getDatabase();
@@ -885,7 +862,6 @@ const server = http.createServer(async (req, res) => {
             assertSelf(user, userId);
             const activeOnly = url.searchParams.get('active_only') === 'true';
             const waitlist = await listWaitlist(database, { userId, activeOnly });
-          //  const holds = await listWaitlist(database);
             res.writeHead(200, { 'Content-Type': 'application/json'});
             res.end(JSON.stringify(waitlist));
         }catch(error){
@@ -950,9 +926,7 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify({ error: 'Route not found' }));
 });
 
-
 server.listen(port, () => {
     console.log(`Server started on port ${port}`);
 });
-
 

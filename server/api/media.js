@@ -164,7 +164,6 @@ export async function updateMedia(database, media_id, media) {
     try {
         await transaction.begin();
 
-        // same rule as the Archive button: no archiving while a copy is on loan or held
         if (!is_active) {
             const out = await new sql.Request(transaction)
                 .input('media_id', sql.Int, media_id)
@@ -198,7 +197,6 @@ export async function updateMedia(database, media_id, media) {
                 throw error;
             }
 
-        // Set the total: add copies, or retire available ones (a retired copy keeps its loan history)
         let copiesToAdd = addCopies;
         if (totalCopies !== undefined) {
             const current = await new sql.Request(transaction)
@@ -232,7 +230,6 @@ export async function updateMedia(database, media_id, media) {
             }
         }
 
-        // Add copies if needed
         if (copiesToAdd > 0) {
             for (let i = 0; i < copiesToAdd; i++) {
                 await new sql.Request(transaction)
@@ -246,7 +243,6 @@ export async function updateMedia(database, media_id, media) {
             }
         }
 
-        // new copies go to waiting holds first (one hold per copy)
         if (copiesToAdd > 0 && is_active) {
             for (let i = 0; i < copiesToAdd; i++) {
                 await new sql.Request(transaction)

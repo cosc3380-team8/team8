@@ -60,7 +60,6 @@ export async function checkout(database, { userId, kind, itemId }) {
     throw error;
   }
 
-  // archived ("deleted") titles can't be borrowed
   const item = await database
     .request()
     .input('itemId', sql.Int, itemId)
@@ -71,7 +70,6 @@ export async function checkout(database, { userId, kind, itemId }) {
     throw error;
   }
 
-  // a member must bring back anything overdue before borrowing again
   const overdue = await database
     .request()
     .input('userId', sql.Int, userId)

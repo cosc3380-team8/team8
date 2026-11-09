@@ -1,7 +1,3 @@
--- team8_hold_trigger_test_portal.sql: the same test as team8_hold_trigger_test.sql, for the Azure portal
--- query editor (it can't run GO lines). Paste all of it and click Run. NOTHING is saved: it ends with ROLLBACK.
--- Every row should say PASS (the last 2 rows check that nothing was saved).
-
 SET XACT_ABORT ON;
 SET NOCOUNT ON;
 
@@ -77,7 +73,6 @@ BEGIN
     END;
 END;');
 
--- a book with a free copy and nobody waiting for it
 SELECT TOP 1 @book = b.book_id, @copy = c.copy_id, @title = b.title
 FROM dbo.book AS b
 JOIN dbo.copies AS c ON c.book_id = b.book_id
@@ -92,7 +87,6 @@ SELECT TOP 1 @u2 = user_id FROM dbo.[user] WHERE is_active = 1 AND user_id > @u1
 IF @book IS NULL OR @u2 IS NULL
     THROW 50999, 'The test needs a book with a free copy and nobody waiting, and 2 members.', 1;
 
--- member 1: hold was ready 4 days ago and ran out yesterday. member 2: next in line.
 INSERT INTO dbo.waitlist (user_id, book_id, request_time, status, ready_date, expiration_date, held_copy_id)
 VALUES (@u1, @book, DATEADD(day, -6, SYSDATETIME()), 'ready', DATEADD(day, -4, @today), DATEADD(day, -1, @today), @copy);
 SET @h1 = CAST(SCOPE_IDENTITY() AS int);
@@ -105,7 +99,6 @@ SET @h2 = CAST(SCOPE_IDENTITY() AS int);
 SET @n0 = (SELECT ISNULL(MAX(notification_id), 0) FROM dbo.notification);
 SET @a0 = (SELECT ISNULL(MAX(log_id), 0) FROM dbo.audit_log);
 
--- 1. the daily job runs
 EXEC dbo.expire_holds;
 INSERT INTO @r (what, expected, got) VALUES
     ('Hold 1 ran out yesterday: status', 'expired', (SELECT status FROM dbo.waitlist WHERE waitlist_id = @h1)),
@@ -116,14 +109,12 @@ INSERT INTO @r (what, expected, got) VALUES
     ('Hold 2: pick up by', CONVERT(nvarchar(60), DATEADD(day, 3, @today), 23), (SELECT CONVERT(nvarchar(60), expiration_date, 23) FROM dbo.waitlist WHERE waitlist_id = @h2)),
     ('Hold 2: member is told it is ready', 'yes', CASE WHEN EXISTS (SELECT 1 FROM dbo.notification WHERE notification_id > @n0 AND user_id = @u2 AND source = 'sp_promote_next_hold' AND message LIKE '%' + @title + '%') THEN 'yes' ELSE 'no' END);
 
--- 2. runs again the same day: nothing changes
 SET @n1 = (SELECT ISNULL(MAX(notification_id), 0) FROM dbo.notification);
 EXEC dbo.expire_holds;
 INSERT INTO @r (what, expected, got) VALUES
     ('Runs again same day: hold 2 is still', 'ready', (SELECT status FROM dbo.waitlist WHERE waitlist_id = @h2)),
     ('Runs again same day: new messages', '0', CAST((SELECT COUNT(*) FROM dbo.notification WHERE notification_id > @n1 AND user_id IN (@u1, @u2)) AS nvarchar(60)));
 
--- 3. hold 2 is not picked up either, and nobody else is waiting: the copy goes back on the shelf
 SET @copy2 = (SELECT held_copy_id FROM dbo.waitlist WHERE waitlist_id = @h2);
 UPDATE dbo.waitlist SET expiration_date = DATEADD(day, -1, @today) WHERE waitlist_id = @h2;
 EXEC dbo.expire_holds;
@@ -131,7 +122,6 @@ INSERT INTO @r (what, expected, got) VALUES
     ('Hold 2 ran out too: status', 'expired', (SELECT status FROM dbo.waitlist WHERE waitlist_id = @h2)),
     ('Nobody waiting: copy is back on the shelf', 'yes', CASE WHEN (SELECT is_available FROM dbo.copies WHERE copy_id = @copy2) = 1 THEN 'yes' ELSE 'no' END);
 
--- undo everything: the test holds, the messages, the new procedure and the trigger
 ROLLBACK TRANSACTION;
 
 INSERT INTO @r (what, expected, got) VALUES

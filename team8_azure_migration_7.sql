@@ -1,32 +1,15 @@
--- team8_azure_migration_7.sql: late fines grow while the item is still out (Uma's feedback, Nov 7 2026).
--- Business rule: a late item costs $5, plus $1 for each full week late (5 + days late / 7).
--- Before: the fine was only made when the item came back (trg_loan_return).
--- Now:
---   1. dbo.update_overdue_fines sets today's fine on every late item that is still out, and tells the
---      member each time it goes up: "Your fine on "1984" is now $7." Azure SQL Database has no job
---      scheduler, so the server runs it at every login and each time a fines list is opened
---      (server/api/auth.js, server/api/fines.js).
---   2. trg_loan_return locks the final fine when the item comes back. It sets the fine from the real
---      return date, so it is right even if the member never logged in while it was late. After the
---      return, update_overdue_fines never changes that fine again (it only looks at items still out).
--- Run after team8_azure_migration_6.sql. Safe to run again. Applied on Azure on Nov 7 2026.
--- Test it first: team8_fines_test.sql runs this same code inside a transaction and rolls it all back.
-
 CREATE OR ALTER PROCEDURE dbo.update_overdue_fines
-    @p_user_id int = NULL   -- NULL = every member
+    @p_user_id int = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
-    -- "today" in Houston, not the server's UTC date
     DECLARE @v_today date = CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'Central Standard Time' AS date);
-    -- the fines this run made or raised, so each member is told once
     DECLARE @v_changed TABLE (loan_id int, amount decimal(8,2));
 
     BEGIN TRANSACTION;
 
-    -- 1. a late item that already has a fine: raise it when a new full week has passed (never lower it)
     UPDATE f
     SET amount = 5 + DATEDIFF(day, l.due_date, @v_today) / 7
     OUTPUT inserted.loan_id, inserted.amount INTO @v_changed (loan_id, amount)
@@ -37,7 +20,6 @@ BEGIN
       AND (@p_user_id IS NULL OR l.user_id = @p_user_id)
       AND f.amount < 5 + DATEDIFF(day, l.due_date, @v_today) / 7;
 
-    -- 2. an item that just became late: its fine starts at $5 (the lock stops two logins from both adding it)
     INSERT INTO dbo.fine (loan_id, amount)
     OUTPUT inserted.loan_id, inserted.amount INTO @v_changed (loan_id, amount)
     SELECT l.loan_id, 5 + DATEDIFF(day, l.due_date, @v_today) / 7
@@ -47,7 +29,6 @@ BEGIN
       AND (@p_user_id IS NULL OR l.user_id = @p_user_id)
       AND NOT EXISTS (SELECT 1 FROM dbo.fine AS f WITH (UPDLOCK, HOLDLOCK) WHERE f.loan_id = l.loan_id);
 
-    -- 3. tell the member, and log it
     INSERT INTO dbo.notification (user_id, source, message)
     SELECT l.user_id, 'sp_update_overdue_fines',
            LEFT(CONCAT('Your fine on "', COALESCE(b.title, m.title), '" is now $', CAST(ch.amount AS int),
@@ -69,8 +50,6 @@ BEGIN
 END;
 GO
 
--- same trigger as team8_azure_migration.sql, with one new step: if the item already has a fine
--- (made by update_overdue_fines while it was late), set it to the final amount
 CREATE OR ALTER TRIGGER dbo.trg_loan_return
 ON dbo.[loan]
 AFTER UPDATE, DELETE
@@ -78,8 +57,6 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- the final fine, from the real return date. A fine that grew while the item was out is set
-    -- to this amount, and it never changes after this.
     UPDATE f
     SET amount = 5 + DATEDIFF(day, i.due_date, i.return_date) / 7
     FROM dbo.fine AS f
@@ -88,7 +65,6 @@ BEGIN
     WHERE d.return_date IS NULL
       AND i.return_date > i.due_date;
 
-    -- late, but no fine yet (the member never logged in while it was late): add it
     INSERT INTO dbo.fine (loan_id, amount)
     SELECT i.loan_id, 5 + DATEDIFF(day, i.due_date, i.return_date) / 7
     FROM inserted AS i
@@ -130,12 +106,10 @@ BEGIN
 END;
 GO
 
--- the website's server logs in as [Vercel], which can only run procedures it was given one by one
 IF EXISTS (SELECT 1 FROM sys.database_principals WHERE name = 'Vercel')
     GRANT EXECUTE ON dbo.update_overdue_fines TO [Vercel];
 GO
 
--- check: all three should show 1
 SELECT
     (SELECT COUNT(*) FROM sys.procedures WHERE name = 'update_overdue_fines') AS fines_procedure_expect_1,
     (SELECT COUNT(*) FROM sys.database_permissions pe JOIN sys.database_principals p ON p.principal_id = pe.grantee_principal_id
