@@ -16,6 +16,7 @@ export default function ManageMediaPage() {
         idKey="media_id"
         rows={media.data ?? []}
         reload={media.reload}
+        archivedLabel = "Archived media items"
         defaults={{ title: '', media_type: '', add_copies: 1, is_active: true }}
         fields={[
           { key: 'title', label: 'Title', type: 'text', required: true },
