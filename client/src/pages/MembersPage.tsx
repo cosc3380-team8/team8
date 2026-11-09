@@ -16,6 +16,7 @@ export default function MembersPage() {
         idKey="user_id"
         rows={members.data ?? []}
         reload={members.reload}
+        archivedLabel = "Inactive members"
         deleteLabel="Deactivate"
         canAdd={isAdmin}
         defaults={{ first_name: '', last_name: '', email: '', password: '', role: 'student', is_active: true }}
