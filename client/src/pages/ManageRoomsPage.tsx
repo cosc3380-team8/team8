@@ -14,6 +14,7 @@ export default function ManageRoomsPage() {
         idKey="room_id"
         rows={rooms.data ?? []}
         reload={rooms.reload}
+        archivedLabel="Archived rooms"
         defaults={{ room_number: '', room_level: 1, capacity: 4, is_active: true }}
         fields={[
           { key: 'room_number', label: 'Room number', type: 'text', required: true },
