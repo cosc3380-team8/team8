@@ -344,7 +344,13 @@ export async function runQuery(database, id, params) {
                        u.first_name + N' ' + u.last_name AS [Member],
                        CONVERT(char(10), CAST(w.request_time AS datetimeoffset) AT TIME ZONE 'Central Standard Time', 23) AS [Requested],
                        CASE w.status WHEN 'ready' THEN N'Ready' ELSE N'Waiting' END AS [Status],
-                       CONVERT(char(10), w.expiration_date, 23) AS [Pick up by]
+                      
+                                              
+                       CASE WHEN w.status = 'ready'
+                            THEN CONVERT(char(10), DATEADD(day, 3, COALESCE(w.ready_date,
+                                 CAST(CAST(w.request_time AS datetimeoffset) AT TIME ZONE 'Central Standard Time' AS date))), 23)
+                       END AS [Pick up by]
+
                 FROM waitlist AS w
                 JOIN [user] AS u ON u.user_id = w.user_id
                 WHERE w.status IN ('waiting', 'ready')
