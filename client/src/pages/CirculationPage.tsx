@@ -152,7 +152,8 @@ import { FormEvent, useState } from 'react';
 import * as api from '../api/api';
 import { useAuth } from '../auth/AuthContext';
 import ReceiptModal from '../components/ReceiptModal';
-import { Badge, Card, modal, DataTable, PageHeader, Tabs, useAction, useLoad } from '../components/ui';
+import { IN_PERSON_METHODS } from '../api/rules';
+import { Badge, Card, DataTable, Modal, PageHeader, Tabs, useAction, useLoad } from '../components/ui';
 import { fmtDate, money } from '../utils/dates';
 import type { FineView, ItemKind, ReceiptView } from '../types';
 
@@ -201,13 +202,8 @@ export default function CirculationPage() {
     }
   };
 
-<<<<<<< Updated upstream
   const recordPayment = (fineId: number, method: string) => run(async () => {
     setReceipt(await api.doPayFine(fineId, method));
-=======
-  const recordPayment = (fineId: number) => run(async () => {
-    setReceipt(await api.doPayFine(fineId, 'Cash'));
->>>>>>> Stashed changes
   }, 'Payment received in person. Receipt issued.', reloadAll);
 
   return (
@@ -297,13 +293,8 @@ export default function CirculationPage() {
       )}
 
       {tab === 'fines' && (
-<<<<<<< Updated upstream
-      <Card title = "Fines: In person payments">
-         <p className="muted">Members pay fines at the desk. Choose Cash or Card on your fine to record a payment.</p>
-=======
         <Card title="Fines — cash payments">
-          <p className="muted">Members pay fines in cash at the desk. Recording a payment creates a receipt the member can see under My Receipts.</p>
->>>>>>> Stashed changes
+          <p className="muted">Members pay fines in cash at the desk. Click Cash on a fine to record the payment and print a receipt.</p>
           <DataTable rows={fines.data ?? []} empty="No fines have been issued."
             columns={[
               { header: 'Fine #', cell: (f) => f.fine_id },

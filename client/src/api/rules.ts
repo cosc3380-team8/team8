@@ -284,5 +284,5 @@ export const LIMITS = {
 export const STUDENT_LIMIT_MESSAGE =
   'Trying to borrow more books? Return one today and experience another book’s world!';
 
-export const IN_PERSON_METHODS = ['Cash', 'Card'] as const;
+export const IN_PERSON_METHODS = ['Cash'] as const;
 
