@@ -14,6 +14,7 @@ export default function StaffPage() {
         idKey="staff_id"
         rows={staff.data ?? []}
         reload={staff.reload}
+        archivedLabel = "Inactive staff"
         deleteLabel="Deactivate"
         defaults={{ first_name: '', last_name: '', email: '', password: '', is_admin: false, is_active: true }}
         fields={[
