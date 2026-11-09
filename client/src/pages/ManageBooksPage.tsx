@@ -16,7 +16,8 @@ export default function ManageBooksPage() {
         idKey="book_id"
         rows={books.data ?? []}
         reload={books.reload}
-        defaults={{ title: '', isbn: '', publisher: '', author_ids: [], add_copies: 1, is_active: true }}
+        archivedLabel="Archived books"
+        defaults={{ title: '', isbn: '', publisher: '', author_ids: [], total_copies: 1, is_active: true }}
         fields={[
           { key: 'title', label: 'Title', type: 'text', required: true },
           { key: 'author_ids', label: 'Authors', type: 'multiselect', required: true,
@@ -25,11 +26,11 @@ export default function ManageBooksPage() {
             render: (r) => r.author_name },
           { key: 'isbn', label: 'ISBN', type: 'text', hint: '10 or 13 digits. Dashes are ignored.' },
           { key: 'publisher', label: 'Publisher', type: 'text' },
-          { key: 'add_copies', label: 'Copies to add', type: 'number', formOnly: true, hint: 'Each physical copy gets its own copy ID and loan history.' },
+          { key: 'total_copies', label: 'Total copies', type: 'number', required: true, formOnly: true, hint: 'Enter the new total to add or remove copies. Copies on loan or on hold cannot be removed.' },
           { key: 'copies', label: 'Copies (available / total)', type: 'text', tableOnly: true, render: (r) => `${r.available_copies} / ${r.total_copies}` },
           { key: 'is_active', label: 'Active', type: 'checkbox' },
         ]}
-        onSave={(r) => api.saveBook(r as Partial<Book>, Number(r.add_copies || 0))}
+        onSave={(r) => api.saveBook(r as Partial<Book> & { total_copies: number })}
         onDelete={(r) => api.deleteBook(r.book_id)}
       />
       <EntityManager
@@ -50,4 +51,3 @@ export default function ManageBooksPage() {
       />
     </>
   );
-}
