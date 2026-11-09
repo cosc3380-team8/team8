@@ -221,4 +221,8 @@ export const cancelReservation = (id: number) => request<void>(`/reservations/${
 
 export const runMaintenance = () => request<number>('/holds/expire', 'POST');
 
+// admin only: delete all activity and put the same demo state back (team8_azure_migration_8.sql)
+export interface ResetResult { accounts: number; items_out: number; items_late: number; fines: number; holds: number; room_bookings: number }
+export const resetDemoData = () => request<ResetResult>('/admin/reset-demo', 'POST');
+
 

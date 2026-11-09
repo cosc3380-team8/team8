@@ -12,12 +12,14 @@ import { listMembers, saveMember, updateMember, deleteMember } from './api/membe
 import { listStaff, saveStaff, updateStaff, deleteStaff } from './api/staff.js';
 import { listFines, payFine } from './api/fines.js';
 import { listWaitlist, placeHold, cancelHold, expireHolds, holdOwner } from './api/waitlist.js';
+import { listCopies, archiveCopy } from './api/copies.js';
 import { runQuery, runReport, listReportAuthors } from './api/reports.js';
 import { login } from './api/auth.js';
 import { listAudit } from './api/audit.js';
 import { dashboardStats } from './api/stats.js';
 import { listNotifications, unreadCount, markRead } from './api/notifications.js';
 import { listReceipts } from './api/receipts.js';
+import { runDailyJobs } from './api/daily.js';
 
 const port = Number(process.env.PORT) || 3000;
 const allowedOrigins = new Set(['http://localhost', 'http://localhost:5173', 'https://umas-library.vercel.app']);
@@ -87,6 +89,7 @@ function allowedRoles(method, path) {
     if (method === 'POST' && path === '/members') return ['admin'];
     if (/^\/(members|stats)(\/|$)/.test(path)) return STAFF;
     if (method !== 'GET' && /^\/(books|authors|media|rooms)(\/|$)/.test(path)) return STAFF;
+    if (/^\/copies(\/|$)/.test(path)) return STAFF;
     if (method === 'POST' && /^\/(loans(\/\d+\/return)?|fines\/\d+\/pay|holds\/expire)$/.test(path)) return STAFF;
     return null;
 }
@@ -152,6 +155,19 @@ const server = http.createServer(async (req, res) => {
     }
 
     const url = new URL(req.url, baseUrl);
+
+    // Vercel Cron calls this by itself once a day (see vercel.json), so late fines go up even when
+    // nobody logs in. No login needed: it only runs the 3 procedures that every login already runs,
+    // and running them twice in one day changes nothing. If CRON_SECRET is set on Vercel, only
+    // Vercel's cron (which sends that secret) can call it.
+    if (req.method === 'GET' && url.pathname === '/cron/daily') {
+        if (process.env.CRON_SECRET && req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Only the daily job can call this.' }));
+            return;
+        }
+        return respond(res, 200, 'An error occurred while running the daily jobs.', runDailyJobs);
+    }
 
     let user = null;
     if (!(req.method === 'POST' && url.pathname === '/login')) {
@@ -845,6 +861,15 @@ const server = http.createServer(async (req, res) => {
     }
     else if (req.method === 'POST' && url.pathname === '/holds/expire') {
         return respond(res, 200, 'An error occurred while expiring holds.', expireHolds);
+    }
+    else if (req.method === 'GET' && url.pathname === '/copies') {
+        const kind = url.searchParams.get('kind');
+        const itemId = Number(url.searchParams.get('id'));
+        return respond(res, 200, 'An error occurred while loading the copies.', (database) => listCopies(database, kind, itemId));
+    }
+    else if (req.method === 'PATCH' && /^\/copies\/\d+$/.test(url.pathname)) {
+        const copyId = Number(url.pathname.split('/')[2]);
+        return respond(res, 200, 'An error occurred while archiving the copy.', (database) => archiveCopy(database, copyId));
     }
     else if (req.method === 'POST' && /^\/holds\/\d+\/cancel$/.test(url.pathname)) {
         const holdId = Number(url.pathname.split('/')[2]);

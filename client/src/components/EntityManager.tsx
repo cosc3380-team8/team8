@@ -31,11 +31,21 @@ interface Props {
   deleteLabel?: string;
   canAdd?: boolean;
   note?: string;
+<<<<<<< Updated upstream
   archivedLabel?: string;
 }
 
 export default function EntityManager({ title, noun, rows, idKey, fields, defaults, onSave, onDelete, reload, deleteLabel = 'Archive', canAdd = true, note, archivedLabel }: Props) {
+=======
+  rowActions?: (row: Record<string, any>) => ReactNode;
+}
+
+export default function EntityManager({ title, noun, rows, idKey, fields, defaults, onSave, onDelete, reload, deleteLabel = 'Archive', canAdd = true, note, rowActions }: Props) {
+>>>>>>> Stashed changes
   const [editing, setEditing] = useState<Record<string, any> | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const active = rows.filter((r) => r.is_active !== false);
+  const archived = rows.filter((r) => r.is_active === false);
   const [isNew, setIsNew] = useState(false);
   const [formError, setFormError] = useState('');
   const { run, banner } = useAction();
@@ -65,7 +75,7 @@ export default function EntityManager({ title, noun, rows, idKey, fields, defaul
   };
 
   const columns = [
-    ...fields.filter((f) => !f.formOnly && f.type !== 'password').map((f) => ({
+    ...fields.filter((f) => !f.formOnly && f.type !== 'password' && f.key !== 'is_active').map((f) => ({
       header: f.label,
       cell: (r: Record<string, any>) => {
         if (f.render) return f.render(r);
@@ -81,6 +91,7 @@ export default function EntityManager({ title, noun, rows, idKey, fields, defaul
       cell: (r: Record<string, any>) => (
         <div className="row gap">
           <button className="btn small" onClick={() => open(r)}>Edit</button>
+          {rowActions?.(r)}
           {onDelete && r.is_active !== false && (
             <button
               className="btn small danger"
@@ -102,6 +113,7 @@ export default function EntityManager({ title, noun, rows, idKey, fields, defaul
     <Card title={title} actions={canAdd && <button className="btn primary" onClick={() => open()}>+ Add {noun.toLowerCase()}</button>}>
       {note && <p className="muted">{note}</p>}
       {banner}
+<<<<<<< Updated upstream
       
       <DataTable columns={columns} rows={currentRows} empty={archivedRows.length > 0 ? `No active ${noun.toLowerCase()} records.` : `No ${noun.toLowerCase()} records yet.`} />
        {archivedRows.length > 0 && (
@@ -111,6 +123,23 @@ export default function EntityManager({ title, noun, rows, idKey, fields, defaul
          </details>
        )}
 
+=======
+      <DataTable columns={columns} rows={active} empty={`No active ${noun.toLowerCase()} records.`} />
+      {archived.length > 0 && (
+        <div style={{ marginTop: '1rem' }}>
+          <button className="btn small" onClick={() => setShowArchived(!showArchived)}>
+            {showArchived ? 'Hide' : 'Show'} archived ({archived.length})
+          </button>
+          {showArchived && (
+            <>
+              <h3>Archived</h3>
+              <p className="muted">Archived records keep their history. Edit one and tick Active to bring it back.</p>
+              <DataTable columns={columns} rows={archived} empty="" />
+            </>
+          )}
+        </div>
+      )}
+>>>>>>> Stashed changes
       {editing && (
         <Modal title={`${isNew ? 'Add' : 'Edit'} ${noun.toLowerCase()}`} onClose={() => setEditing(null)}>
           <form onSubmit={submit} className="form">

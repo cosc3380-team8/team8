@@ -151,7 +151,6 @@ export default function CirculationPage() {
 import { FormEvent, useState } from 'react';
 import * as api from '../api/api';
 import { useAuth } from '../auth/AuthContext';
-import { IN_PERSON_METHODS } from '../api/rules';
 import ReceiptModal from '../components/ReceiptModal';
 import { Badge, Card, modal, DataTable, PageHeader, Tabs, useAction, useLoad } from '../components/ui';
 import { fmtDate, money } from '../utils/dates';
@@ -202,8 +201,13 @@ export default function CirculationPage() {
     }
   };
 
+<<<<<<< Updated upstream
   const recordPayment = (fineId: number, method: string) => run(async () => {
     setReceipt(await api.doPayFine(fineId, method));
+=======
+  const recordPayment = (fineId: number) => run(async () => {
+    setReceipt(await api.doPayFine(fineId, 'Cash'));
+>>>>>>> Stashed changes
   }, 'Payment received in person. Receipt issued.', reloadAll);
 
   return (
@@ -269,14 +273,16 @@ export default function CirculationPage() {
       {tab === 'holds' && (
         <Card title="Active holds" actions={
           <button className="btn small" onClick={() => run(async () => { const n = await api.runMaintenance(); return n === 0 ? 'No holds needed to expire.' : `${n} expired hold${n === 1 ? '' : 's'} released.`; }, 'Expired holds released.', reloadAll)}>
-            Run hold-expiry job
+            Expire old holds now
           </button>}>
+          <p className="muted">A ready hold not picked up by its date expires by itself every morning, and the copy goes to the next person in line.</p>
           <DataTable rows={holds.data ?? []} empty="No active holds."
             columns={[
               { header: 'Title', cell: (h) => h.title },
               { header: 'Member', cell: (h) => h.member_name },
               { header: 'Requested', cell: (h) => fmtDate(h.request_date) },
-              { header: 'Status', cell: (h) => h.status === 'ready' ? <Badge tone="green">Ready · expires {fmtDate(h.expiration_date)}</Badge> : <Badge tone="amber">Queue #{h.queue_position}</Badge> },
+              { header: 'Status', cell: (h) => h.status === 'ready' ? <Badge tone="green">Ready</Badge> : <Badge tone="amber">Queue #{h.queue_position}</Badge> },
+              { header: 'Pick up by', cell: (h) => h.status === 'ready' ? fmtDate(h.expiration_date) : '—' },
               { header: '', cell: (h) => (
                 <div className="row gap">
                   {/* a ready hold: check out the copy set aside for this member */}
@@ -291,8 +297,13 @@ export default function CirculationPage() {
       )}
 
       {tab === 'fines' && (
+<<<<<<< Updated upstream
       <Card title = "Fines: In person payments">
          <p className="muted">Members pay fines at the desk. Choose Cash or Card on your fine to record a payment.</p>
+=======
+        <Card title="Fines — cash payments">
+          <p className="muted">Members pay fines in cash at the desk. Recording a payment creates a receipt the member can see under My Receipts.</p>
+>>>>>>> Stashed changes
           <DataTable rows={fines.data ?? []} empty="No fines have been issued."
             columns={[
               { header: 'Fine #', cell: (f) => f.fine_id },

@@ -1,10 +1,13 @@
 import * as api from '../api/api';
+import { useState } from 'react';
+import CopiesModal from '../components/CopiesModal';
 import EntityManager from '../components/EntityManager';
 import { PageHeader, useLoad } from '../components/ui';
 import type { Author, Book } from '../types';
 
 export default function ManageBooksPage() {
   const books = useLoad(api.listBooks);
+  const [copiesOf, setCopiesOf] = useState<Record<string, any> | null>(null);
   const authors = useLoad(api.listAuthors);
 
   return (
@@ -32,7 +35,9 @@ export default function ManageBooksPage() {
         ]}
         onSave={(r) => api.saveBook(r as Partial<Book> & { total_copies: number })}
         onDelete={(r) => api.deleteBook(r.book_id)}
+        rowActions={(r) => <button className="btn small" onClick={() => setCopiesOf(r)}>Copies</button>}
       />
+      {copiesOf && <CopiesModal kind="book" id={copiesOf.book_id} title={copiesOf.title} onClose={() => setCopiesOf(null)} onChange={books.reload} />}
       <EntityManager
         title="Authors"
         noun="Author"

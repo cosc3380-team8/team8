@@ -1,4 +1,6 @@
 import * as api from '../api/api';
+import { useState } from 'react';
+import CopiesModal from '../components/CopiesModal';
 import EntityManager from '../components/EntityManager';
 import { PageHeader, useLoad } from '../components/ui';
 import type { Media } from '../types';
@@ -7,6 +9,7 @@ const TYPES = ['DVD', 'Audiobook', 'Device', 'Other'].map((t) => ({ value: t, la
 
 export default function ManageMediaPage() {
   const media = useLoad(api.listMedia);
+  const [copiesOf, setCopiesOf] = useState<Record<string, any> | null>(null);
   return (
     <>
       <PageHeader title="Manage Media & Devices" subtitle="DVDs, audiobooks, calculators, headphones and other lendable items." />
@@ -27,7 +30,9 @@ export default function ManageMediaPage() {
         ]}
         onSave={(r) => api.saveMedia(r as Partial<Media>, Number(r.add_copies || 0))}
         onDelete={(r) => api.deleteMedia(r.media_id)}
+        rowActions={(r) => <button className="btn small" onClick={() => setCopiesOf(r)}>Copies</button>}
       />
+      {copiesOf && <CopiesModal kind="media" id={copiesOf.media_id} title={copiesOf.title} onClose={() => setCopiesOf(null)} onChange={media.reload} />}
     </>
   );
 }
