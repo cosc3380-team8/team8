@@ -169,10 +169,11 @@ export default function CirculationPage() {
         </Card>
       )}
       {payNow && (
-        <Modal title="Late return — collect fine" onClose={() => {}}>
+        <Modal title="Late return — collect fine" onClose={() => setPayNow(null)}>
           <p>“{payNow.title}” was returned late. {payNow.member_name} owes <strong>{money(payNow.amount_owed ?? payNow.amount)}</strong>.</p>
-          <p className="muted">How is the member paying?</p>
+          <p className="muted">How is the member paying? If they can't pay now, choose Pay later. The fine stays under Fines &amp; payments at this amount.</p>
           <div className="row gap end">
+            <button className="btn" onClick={() => { setPayNow(null); setTab('fines'); }}>Pay later</button>
             {IN_PERSON_METHODS.map((m) => (
               <button key={m} className="btn primary" onClick={() => { setConfirmPay({ fine: payNow, method: m, fromReturn: true }); setPayNow(null); }}>{m}</button>
             ))}
@@ -200,3 +201,4 @@ export default function CirculationPage() {
     </>
   );
 }
+
