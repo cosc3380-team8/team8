@@ -71,6 +71,27 @@ export async function checkout(database, { userId, kind, itemId }) {
     throw error;
   }
 
+  // a member must bring back anything overdue before borrowing again
+  const overdue = await database
+    .request()
+    .input('userId', sql.Int, userId)
+    .query(`
+      SELECT TOP 1 COALESCE(b.title, m.title) AS title
+      FROM dbo.[loan] AS l
+      JOIN dbo.[copies] AS c ON c.copy_id = l.copy_id
+      LEFT JOIN dbo.[book] AS b ON b.book_id = c.book_id
+      LEFT JOIN dbo.[media] AS m ON m.media_id = c.media_id
+      WHERE l.user_id = @userId
+        AND l.return_date IS NULL
+        AND l.due_date < CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'Central Standard Time' AS date)
+      ORDER BY l.due_date
+    `);
+  if (overdue.recordset.length > 0) {
+    const error = new Error(`This member has an overdue item ("${overdue.recordset[0].title}"). It must be returned before they can check out anything else.`);
+    error.statusCode = 400;
+    throw error;
+  }
+
   const result = await database
     .request()
     .input('p_user_id', sql.Int, userId)
