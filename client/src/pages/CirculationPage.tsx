@@ -153,9 +153,9 @@ import * as api from '../api/api';
 import { useAuth } from '../auth/AuthContext';
 import { IN_PERSON_METHODS } from '../api/rules';
 import ReceiptModal from '../components/ReceiptModal';
-import { Badge, Card, DataTable, PageHeader, Tabs, useAction, useLoad } from '../components/ui';
+import { Badge, Card, modal, DataTable, PageHeader, Tabs, useAction, useLoad } from '../components/ui';
 import { fmtDate, money } from '../utils/dates';
-import type { ItemKind, ReceiptView } from '../types';
+import type { FineView, ItemKind, ReceiptView } from '../types';
 
 type Tab = 'checkout' | 'loans' | 'holds' | 'fines';
 
@@ -173,6 +173,7 @@ export default function CirculationPage() {
   const [isbn, setIsbn] = useState('');
   const [isbnNote, setIsbnNote] = useState('');
   const [receipt, setReceipt] = useState<ReceiptView | null>(null);
+  const [confirmPay, setConfirmPay] = useState<{ fine: FineView; method: string } | null>(null);
   const { session } = useAuth();
 
   const reloadAll = () => { members.reload(); books.reload(); media.reload(); loans.reload(); holds.reload(); fines.reload(); };
@@ -303,13 +304,30 @@ export default function CirculationPage() {
               { header: 'Record payment', cell: (f) => f.paid_status === 'unpaid' && (
                 <div className="row gap">
                   {IN_PERSON_METHODS.map((m) => (
-                   <button key={m} className="btn small primary" title={`Record ${m.toLowerCase()} payment and print receipt`} onClick={() => recordPayment(f.fine_id, m)}>{m}</button>
+                   <button key={m} className="btn small primary" title={`Record ${m.toLowerCase()} payment and print receipt`} onClick={() => setConfirmPay({fine: f, method: m})}>{m}</button>
                   ))}
                 </div>
               ) },
             ]} />
         </Card>
       )}
+      {confirmPay && (
+        <Modal title="Confirm payment" onClose={() => setConfirmPay(null)}>
+          <p>Are you sure this is a <strong>{confirmPay.method.toLowerCase()}</strong> payment?</p>
+          <p className="muted">
+            Fine #{confirmPay.fine.fine_id} · {confirmPay.fine.member_name} · {confirmPay.fine.title} · {money(confirmPay.fine.amount_owed ?? confirmPay.fine.amount)}
+          </p>
+          <div className="row gap end">
+            <button className="btn" onClick={() => setConfirmPay(null)}>Cancel</button>
+            <button className="btn primary" onClick={() => {
+              const { fine, method } = confirmPay;
+              setConfirmPay(null);
+              recordPayment(fine.fine_id, method);
+            }}>Yes, it is {confirmPay.method.toLowerCase()}</button>
+           </div>
+         </Modal>
+      )}
+
       {receipt && <ReceiptModal receipt={receipt} onClose={() => setReceipt(null)} />}
     </>
   );
