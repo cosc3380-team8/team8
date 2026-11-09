@@ -1,11 +1,11 @@
 import { FormEvent, useState } from 'react';
 import * as api from '../api/api';
 import { useAuth } from '../auth/AuthContext';
-import { IN_PERSON_METHODS } from '../api/rules';
 import ReceiptModal from '../components/ReceiptModal';
-import { Badge, Card, DataTable, PageHeader, Tabs, useAction, useLoad } from '../components/ui';
+import { IN_PERSON_METHODS } from '../api/rules';
+import { Badge, Card, DataTable, Modal, PageHeader, Tabs, useAction, useLoad } from '../components/ui';
 import { fmtDate, money } from '../utils/dates';
-import type { ItemKind, ReceiptView } from '../types';
+import type { FineView, ItemKind, ReceiptView } from '../types';
 
 type Tab = 'checkout' | 'loans' | 'holds' | 'fines';
 
@@ -20,9 +20,12 @@ export default function CirculationPage() {
   const { run, banner } = useAction();
   const [memberId, setMemberId] = useState('');
   const [item, setItem] = useState('');
-  const [method, setMethod] = useState('Cash');
   const [isbn, setIsbn] = useState('');
+  const [isbnNote, setIsbnNote] = useState('');
   const [receipt, setReceipt] = useState<ReceiptView | null>(null);
+  const [confirmPay, setConfirmPay] = useState<{ fine: FineView; method: string; fromReturn?: boolean } | null>(null);
+  // fine from a late return; staff must pick cash or card
+  const [payNow, setPayNow] = useState<FineView | null>(null);
   const { session } = useAuth();
 
   const reloadAll = () => { members.reload(); books.reload(); media.reload(); loans.reload(); holds.reload(); fines.reload(); };
@@ -30,7 +33,7 @@ export default function CirculationPage() {
   const submitCheckout = (e: FormEvent) => {
     e.preventDefault();
     const [kind, id] = item.split(':');
-    run(() => api.doCheckout(Number(memberId), kind as ItemKind, Number(id)), 'Checked out. Due date was set from the member’s role.', reloadAll);
+    run(async () => `Checked out. Due ${fmtDate((await api.doCheckout(Number(memberId), kind as ItemKind, Number(id))).due_date)}.`, 'Checked out.', reloadAll);
   };
 
   const activeMembers = (members.data ?? []).filter((m) => m.is_active);
@@ -38,12 +41,20 @@ export default function CirculationPage() {
   // pick item by isbn
   const lookupIsbn = (value: string) => {
     setIsbn(value);
-    const digits = value.replace(/[^0-9Xx]/g, '').toUpperCase();
-    const hit = (books.data ?? []).find((b) => b.is_active && b.isbn && b.isbn === digits);
-    if (hit) setItem(`book:${hit.book_id}`);
+    const clean = (s: string) => s.replace(/[^0-9Xx]/g, '').toUpperCase();
+    const digits = clean(value);
+    if (!digits) { setIsbnNote(''); return; }
+    const hit = (books.data ?? []).find((b) => b.is_active && b.isbn && clean(b.isbn) === digits);
+    if (hit) {
+      setItem(`book:${hit.book_id}`);
+      setIsbnNote(`Found: ${hit.title}`);
+    } else {
+      setItem('');
+      setIsbnNote(digits.length >= 10 ? 'No active book has that ISBN.' : '');
+    }
   };
 
-  const recordPayment = (fineId: number) => run(async () => {
+  const recordPayment = (fineId: number, method: string) => run(async () => {
     setReceipt(await api.doPayFine(fineId, method));
   }, 'Payment received in person. Receipt issued.', reloadAll);
 
@@ -62,6 +73,7 @@ export default function CirculationPage() {
           <form className="form inline" onSubmit={submitCheckout}>
             <label><span>ISBN lookup</span>
               <input value={isbn} onChange={(e) => lookupIsbn(e.target.value)} placeholder="Scan or type ISBN" inputMode="numeric" />
+              {isbnNote && <small className="muted">{isbnNote}</small>}
             </label>
             <label><span>Member</span>
               <select value={memberId} onChange={(e) => setMemberId(e.target.value)} required>
@@ -100,7 +112,12 @@ export default function CirculationPage() {
               { header: 'Status', cell: (l) => l.status === 'overdue' ? <Badge tone="red">Overdue</Badge> : l.status === 'due-soon' ? <Badge tone="amber">Due soon</Badge> : <Badge tone="green">On loan</Badge> },
               { header: '', cell: (l) => <button className="btn small primary" onClick={() => run(async () => {
                   const r = await api.doReturn(l.loan_id);
-                  if (r.fine) throw new Error(`Returned late. A fine of ${money(r.fine.amount)} was created automatically.`);
+                  if (r.fine) {
+                    // late return: staff must collect the fine by cash or card
+                    const fine = (await api.listFines()).find((x) => x.fine_id === r.fine!.fine_id);
+                    if (fine && fine.paid_status === 'unpaid') setPayNow(fine);
+                    return { warning: `“${l.title}” returned late. The final fine is ${money(r.fine.amount)}.` };
+                  }
                 }, `“${l.title}” returned.`, reloadAll)}>Return</button> },
             ]} />
         </Card>
@@ -108,28 +125,33 @@ export default function CirculationPage() {
 
       {tab === 'holds' && (
         <Card title="Active holds" actions={
-          <button className="btn small" onClick={() => run(async () => { const n = await api.runMaintenance(); if (n === 0) throw new Error('No holds needed to expire.'); }, 'Expired holds released.', reloadAll)}>
-            Run hold-expiry job
+          <button className="btn small" onClick={() => run(async () => { const n = await api.runMaintenance(); return n === 0 ? 'No holds needed to expire.' : `${n} expired hold${n === 1 ? '' : 's'} released.`; }, 'Expired holds released.', reloadAll)}>
+            Expire old holds now
           </button>}>
+          <p className="muted">A ready hold not picked up by its date expires by itself every morning, and the copy goes to the next person in line.</p>
           <DataTable rows={holds.data ?? []} empty="No active holds."
             columns={[
               { header: 'Title', cell: (h) => h.title },
               { header: 'Member', cell: (h) => h.member_name },
               { header: 'Requested', cell: (h) => fmtDate(h.request_date) },
-              { header: 'Status', cell: (h) => h.status === 'ready' ? <Badge tone="green">Ready · expires {fmtDate(h.expiration_date)}</Badge> : <Badge tone="amber">Queue #{h.queue_position}</Badge> },
-              { header: '', cell: (h) => <button className="btn small danger" onClick={() => run(() => api.doCancelHold(h.hold_id), 'Hold cancelled.', reloadAll)}>Cancel</button> },
+              { header: 'Status', cell: (h) => h.status === 'ready' ? <Badge tone="green">Ready</Badge> : <Badge tone="amber">Queue #{h.queue_position}</Badge> },
+              { header: 'Pick up by', cell: (h) => h.status === 'ready' ? fmtDate(h.expiration_date) : '—' },
+              { header: '', cell: (h) => (
+                <div className="row gap">
+                  {/* a ready hold: check out the copy set aside for this member */}
+                  {h.status === 'ready' && <button className="btn small primary" onClick={() => run(async () =>
+                    `Checked out to ${h.member_name}. Due ${fmtDate((await api.doCheckout(h.user_id, h.kind, Number(h.kind === 'book' ? h.book_id : h.media_id))).due_date)}.`,
+                    'Checked out.', reloadAll)}>Check out</button>}
+                  <button className="btn small danger" onClick={() => run(() => api.doCancelHold(h.hold_id), 'Hold cancelled.', reloadAll)}>Cancel</button>
+                </div>
+              ) },
             ]} />
         </Card>
       )}
 
       {tab === 'fines' && (
-        <Card title="Fines — in-person payments" actions={
-          <label className="row gap"><span className="muted">Paid in person by</span>
-            <select value={method} onChange={(e) => setMethod(e.target.value)}>
-              {IN_PERSON_METHODS.map((m) => <option key={m}>{m}</option>)}
-            </select>
-          </label>}>
-          <p className="muted">Members pay fines at the desk. Recording a payment creates a receipt the member can see under My Receipts.</p>
+        <Card title="Fines — in-person payments">
+          <p className="muted">Members pay fines at the desk by cash or card, after the item is returned. Choose Cash or Card on a fine to record the payment and print a receipt.</p>
           <DataTable rows={fines.data ?? []} empty="No fines have been issued."
             columns={[
               { header: 'Fine #', cell: (f) => f.fine_id },
@@ -137,12 +159,48 @@ export default function CirculationPage() {
               { header: 'Item', cell: (f) => f.title },
               { header: 'Due / returned', cell: (f) => `${fmtDate(f.due_date)} / ${fmtDate(f.return_date)}` },
               { header: 'Amount', cell: (f) => money(f.amount) },
-              { header: 'Status', cell: (f) => f.paid_status === 'paid' ? <Badge tone="green">Paid {fmtDate(f.paid_date)} · {f.receipt_code}</Badge> : <Badge tone="red">Unpaid</Badge> },
-              { header: '', cell: (f) => f.paid_status === 'unpaid' && <button className="btn small primary" onClick={() => recordPayment(f.fine_id)}>Record payment &amp; print receipt</button> },
+              { header: 'Status', cell: (f) => f.paid_status === 'paid' ? <Badge tone="green">Paid {fmtDate(f.paid_date)} · {f.receipt_code}</Badge> : Number(f.total_paid) > 0 ? <Badge tone="amber">Partly paid · {money(f.amount_owed ?? f.amount)} left</Badge> : <Badge tone="red">Unpaid</Badge> },
+              { header: 'Record payment', cell: (f) => f.paid_status === 'unpaid' && (!f.return_date
+                ? <Badge tone="amber">Return item first</Badge>
+                : (
+                <div className="row gap">
+                  {IN_PERSON_METHODS.map((m) => (
+                   <button key={m} className="btn small primary" title={`Record ${m.toLowerCase()} payment and print receipt`} onClick={() => setConfirmPay({fine: f, method: m})}>{m}</button>
+                  ))}
+                </div>
+              )) },
             ]} />
         </Card>
       )}
+      {payNow && (
+        <Modal title="Late return — collect fine" onClose={() => {}}>
+          <p>“{payNow.title}” was returned late. {payNow.member_name} owes <strong>{money(payNow.amount_owed ?? payNow.amount)}</strong>.</p>
+          <p className="muted">How is the member paying?</p>
+          <div className="row gap end">
+            {IN_PERSON_METHODS.map((m) => (
+              <button key={m} className="btn primary" onClick={() => { setConfirmPay({ fine: payNow, method: m, fromReturn: true }); setPayNow(null); }}>{m}</button>
+            ))}
+          </div>
+        </Modal>
+      )}
+      {confirmPay && (
+        <Modal title="Confirm payment" onClose={() => { if (confirmPay.fromReturn) setPayNow(confirmPay.fine); setConfirmPay(null); }}>
+          <p>Are you sure this is a <strong>{confirmPay.method.toLowerCase()}</strong> payment?</p>
+          <p className="muted">
+            Fine #{confirmPay.fine.fine_id} · {confirmPay.fine.member_name} · {confirmPay.fine.title} · {money(confirmPay.fine.amount_owed ?? confirmPay.fine.amount)}
+          </p>
+          <div className="row gap end">
+            <button className="btn" onClick={() => { if (confirmPay.fromReturn) setPayNow(confirmPay.fine); setConfirmPay(null); }}>No, go back</button>
+            <button className="btn primary" onClick={() => {
+              const { fine, method } = confirmPay;
+              setConfirmPay(null);
+              recordPayment(fine.fine_id, method);
+            }}>Yes, it is {confirmPay.method.toLowerCase()}</button>
+           </div>
+         </Modal>
+      )}
+
       {receipt && <ReceiptModal receipt={receipt} onClose={() => setReceipt(null)} />}
     </>
   );
-
+}
