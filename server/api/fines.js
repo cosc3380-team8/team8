@@ -52,8 +52,8 @@ export async function listFines(database, { userId } = {}) {
 }
 
 export async function payFine(database, fineId, { method, staffId }) {
-    if (String(method).toLowerCase() !== 'cash') {
-        const error = new Error('Fines are paid in cash at the desk.');
+    if (!['cash', 'card'].includes(String(method).toLowerCase())) {
+        const error = new Error('Choose Cash or Card.');
         error.statusCode = 400;
         throw error;
     }
