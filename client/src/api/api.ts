@@ -104,7 +104,7 @@ export const saveAuthor = async (a: Partial<Author>): Promise<void> => {
 
 export const deleteAuthor = (id: number) => request<void>(`/authors/${id}`, 'DELETE');
 
-export const saveBook = async (b: Partial<Book> & { author_ids?: number[] }, addCopies = 0): Promise<void> => {
+export const saveBook = async (b: Partial<Book> & { author_ids?: number[]; total_copies?: number }): Promise<void> => {
   if (!b.title?.trim()) throw new Error('Title is required.');
 
   const isbn = digitsOnly(b.isbn ?? '');
@@ -122,7 +122,7 @@ export const saveBook = async (b: Partial<Book> & { author_ids?: number[] }, add
     publisher: b.publisher ?? '',
     is_active: b.is_active,
     author_ids,
-    addCopies: updating ? Math.max(0, addCopies) : Math.max(1, addCopies),
+    ...(updating ? { total_copies: b.total_copies } : { addCopies: Math.max(1, b.total_copies ?? 1) }),
   });
 };
 
