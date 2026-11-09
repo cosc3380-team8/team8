@@ -125,8 +125,14 @@ export async function updateMedia(database, media_id, media) {
         title, 
         media_type, 
         is_active,
-        addCopies
+        addCopies,
+        total_copies
     } = media;
+
+    const totalCopies = total_copies === undefined ? undefined : total_copies === null || total_copies === '' ? NaN : Number(total_copies);
+    if (totalCopies !== undefined && (!Number.isInteger(totalCopies) || totalCopies < 0 || totalCopies > 1000)) {
+        throw Object.assign(new Error('Total copies must be a whole number from 0 to 1000.'), { statusCode: 400 });
+    }
 
     if (title.length > 150) {
         const error = new Error('Title is too long');
@@ -192,13 +198,47 @@ export async function updateMedia(database, media_id, media) {
                 throw error;
             }
 
+        // Set the total: add copies, or retire available ones (a retired copy keeps its loan history)
+        let copiesToAdd = addCopies;
+        if (totalCopies !== undefined) {
+            const current = await new sql.Request(transaction)
+                .input('media_id', sql.Int, media_id)
+                .query(`
+                    SELECT COUNT(*) AS total,
+                           COALESCE(SUM(CASE WHEN is_available = 0 THEN 1 ELSE 0 END), 0) AS unavailable
+                    FROM copies WITH (UPDLOCK, HOLDLOCK)
+                    WHERE media_id = @media_id AND is_active = 1
+                `);
+            const { total, unavailable } = current.recordset[0];
+
+            if (totalCopies < unavailable) {
+                throw Object.assign(
+                    new Error(`${unavailable} ${unavailable === 1 ? 'copy is' : 'copies are'} on loan or on hold, so the total can't be less than ${unavailable}.`),
+                    { statusCode: 400 }
+                );
+            }
+
+            copiesToAdd = Math.max(0, totalCopies - total);
+
+            if (totalCopies < total) {
+                await new sql.Request(transaction)
+                    .input('media_id', sql.Int, media_id)
+                    .input('remove', sql.Int, total - totalCopies)
+                    .query(`
+                        UPDATE TOP (@remove) copies
+                        SET is_active = 0
+                        WHERE media_id = @media_id AND is_active = 1 AND is_available = 1
+                    `);
+            }
+        }
+
         // Add copies if needed
-        if (addCopies > 0) {
-            for (let i = 0; i < addCopies; i++) {
+        if (copiesToAdd > 0) {
+            for (let i = 0; i < copiesToAdd; i++) {
                 await new sql.Request(transaction)
                     .input('media_id', sql.Int, media_id)
                     .input('is_available', sql.Bit, true)
-                    .input('is_active', sql.Bit, is_active)
+                    .input('is_active', sql.Bit, totalCopies !== undefined ? true : is_active)
                     .query(`
                         INSERT INTO copies (media_id, is_available, is_active)
                         VALUES (@media_id, @is_available, @is_active)
@@ -207,8 +247,8 @@ export async function updateMedia(database, media_id, media) {
         }
 
         // new copies go to waiting holds first (one hold per copy)
-        if (addCopies > 0 && is_active) {
-            for (let i = 0; i < addCopies; i++) {
+        if (copiesToAdd > 0 && is_active) {
+            for (let i = 0; i < copiesToAdd; i++) {
                 await new sql.Request(transaction)
                     .input('media_id', sql.Int, media_id)
                     .query(`EXEC dbo.promote_next_hold NULL, @media_id`);
