@@ -145,7 +145,6 @@ export default function CirculationPage() {
 
       {tab === 'fines' && (
         <Card title="Fines — in-person payments">
-          <p className="muted">Members pay fines at the desk by cash or card, after the item is returned. Choose Cash or Card on a fine to record the payment and print a receipt.</p>
           <DataTable rows={fines.data ?? []} empty="No fines have been issued."
             columns={[
               { header: 'Fine #', cell: (f) => f.fine_id },
