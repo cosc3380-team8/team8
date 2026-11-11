@@ -5,7 +5,6 @@ export function PageHeader({ title, subtitle, actions, titleAside }: { title: st
     <div className="page-header">
       <div>
         <div className="title-row"><h1>{title}</h1>{titleAside}</div>
-        {subtitle && <p className="muted">{subtitle}</p>}
       </div>
       {actions && <div className="row gap">{actions}</div>}
     </div>
