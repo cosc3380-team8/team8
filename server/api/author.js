@@ -16,6 +16,7 @@ export async function listAuthors(database, search = '') {
                     SELECT
                         a.author_id,
                         a.first_name,
+                        a.middle_name, 
                         a.last_name
                     FROM author AS a
                     WHERE (a.first_name LIKE N'%' + @search + N'%'
