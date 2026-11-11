@@ -146,7 +146,7 @@ async function authorDetails(database, f) {
     const result = await withFilters(database.request(), f)
         .query(`
                 SELECT a.author_id AS [Author ID],
-                       //a.first_name + N' ' + a.last_name AS [Author],${LOAN_COLUMNS},${MEMBER_COLUMNS}//
+                       
                         CONCAT_WS(N' ', a.first_name, a.middle_name, a.last_name) AS [Author],${LOAN_COLUMNS},${MEMBER_COLUMNS}
 
                 FROM loan AS l
@@ -287,7 +287,7 @@ export async function runQuery(database, id, params) {
             .query(`
                 SELECT b.title AS [Title],
                        N'Book' AS [Type],
-                    //   (SELECT STRING_AGG(a.first_name + N' ' + a.last_name, N', ') WITHIN GROUP (ORDER BY a.author_id)//
+                
                          (SELECT STRING_AGG(CONCAT_WS(N' ', a.first_name, a.middle_name, a.last_name), N', ') WITHIN GROUP (ORDER BY a.author_id)
 
                         FROM book_author AS ba
@@ -304,7 +304,6 @@ export async function runQuery(database, id, params) {
                                   FROM book_author AS ba
                                   JOIN author AS a ON a.author_id = ba.author_id
                                   WHERE ba.book_id = b.book_id
-                                   // AND a.first_name + N' ' + a.last_name LIKE N'%' + @search + N'%'))//
                                      AND CONCAT_WS(N' ', a.first_name, a.middle_name, a.last_name) LIKE N'%' + @search + N'%'))
 
                 UNION ALL
@@ -588,7 +587,7 @@ export async function runReport(database, id, params) {
     if (id === 'authors') {
         const result = await withFilters(database.request(), { ...f, kind: 'book', authorId: null })
             .query(`
-                SELECT CONCAT_WS(N' ', a.first_name, a.middle_name, a.last_name AS [Author],
+                SELECT CONCAT_WS(N' ', a.first_name, a.middle_name, a.last_name) AS [Author],
                        COUNT(*) AS [Loans],
                        COUNT(DISTINCT b.book_id) AS [Titles borrowed]
                 FROM loan AS l
