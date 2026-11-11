@@ -127,7 +127,6 @@ export default function ReportsPage() {
       </Card>
 
       <Card title={def.title}>
-        <p className="muted">{def.description}</p>
         {error && <Alert kind="error">{error}</Alert>}
         {!data && !error && !loading && <p className="muted">Pick the filters above, then click <strong>View report</strong>.</p>}
         {changed && <Alert kind="warning">You changed the filters. Click <strong>View report</strong> to update the report.</Alert>}
