@@ -128,7 +128,6 @@ export default function ReportsPage() {
 
       <Card title={def.title}>
         {error && <Alert kind="error">{error}</Alert>}
-        {!data && !error && !loading && <p className="muted">Pick the filters above, then click <strong>View report</strong>.</p>}
         {changed && <Alert kind="warning">You changed the filters. Click <strong>View report</strong> to update the report.</Alert>}
         {data && shownActive.length > 0 && <p className="muted">Showing: {shownActive.map((k) => describe(k, shown!)).join(' · ')}</p>}
         {data && (
