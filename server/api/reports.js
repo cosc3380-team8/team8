@@ -588,7 +588,7 @@ export async function runReport(database, id, params) {
     if (id === 'authors') {
         const result = await withFilters(database.request(), { ...f, kind: 'book', authorId: null })
             .query(`
-                SELECT a.first_name + N' ' + a.last_name AS [Author],
+                SELECT CONCAT_WS(N' ', a.first_name, a.middle_name, a.last_name AS [Author],
                        COUNT(*) AS [Loans],
                        COUNT(DISTINCT b.book_id) AS [Titles borrowed]
                 FROM loan AS l
