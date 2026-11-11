@@ -157,7 +157,6 @@ export default function ReportsPage() {
 
       {data?.details && (
         <Card title={`Detailed records (${data.details.rows.length})`}>
-          <p className="muted">The individual records behind this report, using the same filters. Source tables: {data.details.source}.</p>
           <DataTable rows={data.details.rows} empty="No records match these filters."
             columns={data.details.columns.map((c, i) => ({ header: c, cell: (r: (string | number)[]) => r[i] }))} />
         </Card>
