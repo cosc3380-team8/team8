@@ -13,7 +13,7 @@ import ManageMediaPage from './pages/ManageMediaPage';
 import ManageRoomsPage from './pages/ManageRoomsPage';
 import MembersPage from './pages/MembersPage';
 import StaffPage from './pages/StaffPage';
-import QueriesPage from './pages/QueriesPage';
+//import QueriesPage from './pages/QueriesPage';//
 import ReportsPage from './pages/ReportsPage';
 import ReceiptsPage from './pages/ReceiptsPage';
 import NotificationsPage from './pages/NotificationsPage';
@@ -48,7 +48,6 @@ export default function App() {
       <Route path="/manage/media" element={page(<ManageMediaPage />, STAFF)} />
       <Route path="/manage/rooms" element={page(<ManageRoomsPage />, STAFF)} />
       <Route path="/members" element={page(<MembersPage />, STAFF)} />
-      <Route path="/staff" element={page(<StaffPage />, ['admin'])} />
       <Route path="/queries" element={page(<QueriesPage />, ['admin'])} />
       <Route path="/reports" element={page(<ReportsPage />, ['admin'])} />
       <Route path="*" element={<Navigate to="/" replace />} />
