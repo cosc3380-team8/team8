@@ -287,7 +287,9 @@ export async function runQuery(database, id, params) {
             .query(`
                 SELECT b.title AS [Title],
                        N'Book' AS [Type],
-                       (SELECT STRING_AGG(a.first_name + N' ' + a.last_name, N', ') WITHIN GROUP (ORDER BY a.author_id)
+                    //   (SELECT STRING_AGG(a.first_name + N' ' + a.last_name, N', ') WITHIN GROUP (ORDER BY a.author_id)//
+                         (SELECT STRING_AGG(CONCAT_WS(N' ', a.first_name, a.middle_name, a.last_name), N', ') WITHIN GROUP (ORDER BY a.author_id)
+
                         FROM book_author AS ba
                         JOIN author AS a ON a.author_id = ba.author_id
                         WHERE ba.book_id = b.book_id) AS [Author],
