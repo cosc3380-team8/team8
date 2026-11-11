@@ -304,7 +304,9 @@ export async function runQuery(database, id, params) {
                                   FROM book_author AS ba
                                   JOIN author AS a ON a.author_id = ba.author_id
                                   WHERE ba.book_id = b.book_id
-                                    AND a.first_name + N' ' + a.last_name LIKE N'%' + @search + N'%'))
+                                   // AND a.first_name + N' ' + a.last_name LIKE N'%' + @search + N'%'))//
+                                     AND CONCAT_WS(N' ', a.first_name, a.middle_name, a.last_name) LIKE N'%' + @search + N'%'))
+
                 UNION ALL
                 SELECT m.title,
                        m.media_type,
