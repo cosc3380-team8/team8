@@ -146,7 +146,9 @@ async function authorDetails(database, f) {
     const result = await withFilters(database.request(), f)
         .query(`
                 SELECT a.author_id AS [Author ID],
-                       a.first_name + N' ' + a.last_name AS [Author],${LOAN_COLUMNS},${MEMBER_COLUMNS}
+                       //a.first_name + N' ' + a.last_name AS [Author],${LOAN_COLUMNS},${MEMBER_COLUMNS}//
+                        CONCAT_WS(N' ', a.first_name, a.middle_name, a.last_name) AS [Author],${LOAN_COLUMNS},${MEMBER_COLUMNS}
+
                 FROM loan AS l
                 JOIN [user] AS u ON u.user_id = l.user_id
                 JOIN copies AS c ON c.copy_id = l.copy_id
