@@ -55,7 +55,6 @@ export default function RoomsPage() {
         </form>
       </Card>
       <Card title={isStaff ? 'Upcoming reservations' : 'My upcoming reservations'}>
-        <p className="muted">When a reservation’s end time passes, it is archived automatically and moves to the list below.</p>
         <DataTable rows={upcoming} empty="No upcoming reservations."
           columns={[
             { header: 'Room', cell: (r) => r.room_number },
