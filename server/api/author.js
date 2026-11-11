@@ -118,6 +118,7 @@ export async function updateAuthor(database, author_id, author) {
             .query(`
                 UPDATE author
                 SET first_name = @first_name, middle_name = @middle_name, last_name = @last_name
+                WHERE author_id = @author_id
             `); 
     
 
