@@ -67,7 +67,6 @@ export default function CirculationPage() {
 
       {tab === 'checkout' && (
         <Card title="Check out an item">
-          <p className="muted">Students: 3 items for 20 days. Faculty: 6 items for 30 days. A member with a ready hold can take the held copy.</p>
           <form className="form inline" onSubmit={submitCheckout}>
             <label><span>ISBN lookup</span>
               <input value={isbn} onChange={(e) => lookupIsbn(e.target.value)} placeholder="Scan or type ISBN" inputMode="numeric" />
