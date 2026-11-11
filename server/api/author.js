@@ -29,7 +29,7 @@ export async function listAuthors(database, search = '') {
         return result.recordset;
 }
 
-export async function saveAuthor(database, author) {
+/*export async function saveAuthor(database, author) {
     const { first_name, last_name } = author;
 
     try {
@@ -55,6 +55,29 @@ export async function saveAuthor(database, author) {
             .query(`
                 INSERT INTO author (first_name, last_name)
                 VALUES (@first_name, @last_name)
+            `);
+
+        return result;
+    } catch (error) {
+        console.error('Error saving author:', error);
+        throw error;
+    }
+}*/
+    // cuz author can share a same name 
+export async function saveAuthor(database, author) {
+    const { first_name, last_name } = author;
+    const middle_name = author.middle_name?.trim() || null;
+
+    // different authors can share a name, so duplicates are allowed
+    try {
+        const result = await database
+            .request()
+            .input('first_name', sql.NVarChar(50), first_name)
+            .input('middle_name', sql.NVarChar(50), middle_name)
+            .input('last_name', sql.NVarChar(50), last_name)
+            .query(`
+                INSERT INTO author (first_name, middle_name, last_name)
+                VALUES (@first_name, @middle_name, @last_name)
             `);
 
         return result;
