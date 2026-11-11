@@ -20,7 +20,7 @@ export async function listBooks(database, search = '') {
                 b.isbn,
                 b.publish_year,
                 (
-                SELECT STRING_AGG(CONCAT(a.first_name, ' ', a.last_name), ', ')
+                SELECT STRING_AGG(CONCAT_WS(' ', a.first_name, a.middle_name, a.last_name), ', ')
                 FROM book_author AS ba
                 JOIN author AS a ON a.author_id = ba.author_id
                 WHERE ba.book_id = b.book_id
