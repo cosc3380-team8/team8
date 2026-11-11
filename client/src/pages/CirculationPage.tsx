@@ -124,7 +124,6 @@ export default function CirculationPage() {
           <button className="btn small" onClick={() => run(async () => { const n = await api.runMaintenance(); return n === 0 ? 'No holds needed to expire.' : `${n} expired hold${n === 1 ? '' : 's'} released.`; }, 'Expired holds released.', reloadAll)}>
             Expire old holds now
           </button>}>
-          <p className="muted">A ready hold not picked up by its date expires by itself every morning, and the copy goes to the next person in line.</p>
           <DataTable rows={holds.data ?? []} empty="No active holds."
             columns={[
               { header: 'Title', cell: (h) => h.title },
