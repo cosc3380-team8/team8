@@ -27,6 +27,7 @@ export interface Staff {
 export interface Author {
   author_id: number;
   first_name: string;
+  middle_name?: | null;  
   last_name: string;
 }
 
