@@ -102,7 +102,6 @@ export default function EntityManager({ title, noun, rows, idKey, fields, defaul
   const currentRows = archivedLabel ? rows.filter((r) => r.is_active !== false) : rows;
   return (
     <Card title={title} actions={canAdd && <button className="btn primary" onClick={() => open()}>+ Add {noun.toLowerCase()}</button>}>
-      {note && <p className="muted">{note}</p>}
       {banner}
       <DataTable columns={columns} rows={currentRows} empty={archivedRows.length > 0 ? `No active ${noun.toLowerCase()} records.` : `No ${noun.toLowerCase()} records yet.`} />
       {archivedRows.length > 0 && (
