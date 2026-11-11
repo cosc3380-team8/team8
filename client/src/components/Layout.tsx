@@ -50,7 +50,6 @@ export default function Layout({ children }: { children: ReactNode }) {
     ...(isAdmin ? [{ to: '/staff', label: 'Staff (admin)' }] : []),
   ];
   const insightItems: NavItem[] = [
-    { to: '/queries', label: 'Queries' },
     { to: '/reports', label: 'Reports' },
   ];
 
