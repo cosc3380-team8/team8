@@ -95,7 +95,9 @@ export const saveAuthor = async (a: Partial<Author>): Promise<void> => {
   const updating = a.author_id != null;
   await request(updating ? `/authors/${a.author_id}` : '/authors', updating ? 'PUT' : 'POST', {
     first_name: a.first_name.trim(),
+    middle_name: a.middle_name?.trim() || null,
     last_name: a.last_name.trim(),
+
   });
 };
 
