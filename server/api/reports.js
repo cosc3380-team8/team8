@@ -599,7 +599,7 @@ export async function runReport(database, id, params) {
                 JOIN book_author AS ba ON ba.book_id = b.book_id
                 JOIN author AS a ON a.author_id = ba.author_id
                 WHERE l.borrow_date BETWEEN CAST(@from AS date) AND CAST(@to AS date)` + MEMBER_FILTERS + ITEM_FILTERS + `
-                GROUP BY a.author_id, a.first_name, a.last_name
+                GROUP BY a.author_id, a.first_name, a.middle_name, a.last_name
                 ORDER BY [Loans] DESC, [Author]
             `);
 
