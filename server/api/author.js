@@ -88,7 +88,7 @@ export async function saveAuthor(database, author) {
 }
 
 export async function updateAuthor(database, author_id, author) {
-    const { first_name, last_name } = author;
+    /*const { first_name, last_name } = author;
 
     try {
         const result = await database
@@ -99,8 +99,22 @@ export async function updateAuthor(database, author_id, author) {
             .query(`
                 UPDATE author
                 SET first_name = @first_name, last_name = @last_name
-                WHERE author_id = @author_id
-            `);
+                WHERE author_id = @author_id */
+          const { first_name, last_name } = author;
+          const middle_name = author.middle_name?.trim() || null;
+
+     try {
+        const result = await database
+            .request()
+            .input('author_id', sql.Int, author_id)
+            .input('first_name', sql.NVarChar(50), first_name)
+            .input('middle_name', sql.NVarChar(50), middle_name)
+            .input('last_name', sql.NVarChar(50), last_name)
+            .query(`
+                UPDATE author
+                SET first_name = @first_name, middle_name = @middle_name, last_name = @last_name
+            `); 
+    
 
         if (result.rowsAffected[0] === 0) {
             const error = new Error('Author not found');
