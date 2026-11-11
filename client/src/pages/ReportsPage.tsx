@@ -126,7 +126,7 @@ export default function ReportsPage() {
         </form>
       </Card>
 
-      <Card title={def.title}>
+      <Card>
         {error && <Alert kind="error">{error}</Alert>}
         {changed && <Alert kind="warning">You changed the filters. Click <strong>View report</strong> to update the report.</Alert>}
         {data && shownActive.length > 0 && <p className="muted">Showing: {shownActive.map((k) => describe(k, shown!)).join(' · ')}</p>}
