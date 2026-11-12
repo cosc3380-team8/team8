@@ -29,11 +29,12 @@ export default function CatalogPage() {
     if (mine) return mine.status === 'ready'
       ? <Badge tone="green">Ready · pick up by {fmtDate(mine.expiration_date)}</Badge>
       : <Badge tone="amber">On hold · queue #{mine.queue_position ?? '?'}</Badge>;
+    if (available > 0) return <span className="muted">On the shelf, ask at the desk</span>;
     if (atLimit) return <span className="muted">Hold limit ({holdLimit}) reached</span>;
     return (
       <button className="btn small" onClick={() => run(() => api.doPlaceHold(session!.id, kind, id),
-        available > 0 ? 'Hold placed — it is ready for pickup for 3 days.' : 'You are in the hold queue.', reload)}>
-        {available > 0 ? 'Hold for pickup' : 'Join hold queue'}
+        'You are in the hold queue. We will tell you when it is your turn.', reload)}>
+        Join hold queue
       </button>
     );
   };

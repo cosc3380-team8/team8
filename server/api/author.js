@@ -34,46 +34,10 @@ export async function listAuthors(database, search = '') {
         return result.recordset;
 }
 
-/*export async function saveAuthor(database, author) {
-    const { first_name, last_name } = author;
-
-    try {
-        const existingAuthor = await database
-            .request()
-            .input('first_name', sql.NVarChar(50), first_name)
-            .input('last_name', sql.NVarChar(50), last_name)
-            .query(`
-                SELECT COUNT(*) AS count
-                FROM author
-                WHERE first_name = @first_name AND last_name = @last_name
-            `);
-        if (existingAuthor.recordset[0].count > 0) {
-            const error = new Error('Author already exists');
-            error.statusCode = 400;
-            throw error;
-        }
-
-        const result = await database
-            .request()
-            .input('first_name', sql.NVarChar(50), first_name)
-            .input('last_name', sql.NVarChar(50), last_name)
-            .query(`
-                INSERT INTO author (first_name, last_name)
-                VALUES (@first_name, @last_name)
-            `);
-
-        return result;
-    } catch (error) {
-        console.error('Error saving author:', error);
-        throw error;
-    }
-}*/
-    // cuz author can share a same name 
 export async function saveAuthor(database, author) {
     const { first_name, last_name } = author;
     const middle_name = author.middle_name?.trim() || null;
 
-    // different authors can share a name, so duplicates are allowed
     try {
         const result = await database
             .request()
@@ -93,18 +57,6 @@ export async function saveAuthor(database, author) {
 }
 
 export async function updateAuthor(database, author_id, author) {
-    /*const { first_name, last_name } = author;
-
-    try {
-        const result = await database
-            .request()
-            .input('author_id', sql.Int, author_id)
-            .input('first_name', sql.NVarChar(50), first_name)
-            .input('last_name', sql.NVarChar(50), last_name)
-            .query(`
-                UPDATE author
-                SET first_name = @first_name, last_name = @last_name
-                WHERE author_id = @author_id */
           const { first_name, last_name } = author;
           const middle_name = author.middle_name?.trim() || null;
 

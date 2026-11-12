@@ -13,7 +13,6 @@ import ManageMediaPage from './pages/ManageMediaPage';
 import ManageRoomsPage from './pages/ManageRoomsPage';
 import MembersPage from './pages/MembersPage';
 import StaffPage from './pages/StaffPage';
-//import QueriesPage from './pages/QueriesPage';//
 import ReportsPage from './pages/ReportsPage';
 import ReceiptsPage from './pages/ReceiptsPage';
 import NotificationsPage from './pages/NotificationsPage';
