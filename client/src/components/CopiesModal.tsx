@@ -1,6 +1,6 @@
 import { archiveCopy, listCopies } from '../api/copies';
 import { fmtDate } from '../utils/dates';
-import { Badge, DataTable, Modal, useAction, useLoad } from './ui';
+import { Badge, DataTable, Modal, useAction, useConfirm, useLoad } from './ui';
 
 interface Props {
   kind: 'book' | 'media';
@@ -13,17 +13,17 @@ interface Props {
 export default function CopiesModal({ kind, id, title, onClose, onChange }: Props) {
   const copies = useLoad(() => listCopies(kind, id), [kind, id]);
   const { run, banner } = useAction();
+  const { confirm, dialog } = useConfirm();
   const active = (copies.data ?? []).filter((c) => c.status !== 'archived').length;
 
-  const archive = (copyId: number) => {
-    if (!window.confirm(`Archive copy #${copyId}? It will not be lent out again.`)) return;
-    run(() => archiveCopy(copyId), `Copy #${copyId} archived.`, () => { copies.reload(); onChange(); });
-  };
+  const archive = (copyId: number) => confirm(`Archive copy #${copyId}? It will not be lent out again.`,
+    () => run(() => archiveCopy(copyId), `Copy #${copyId} archived.`, () => { copies.reload(); onChange(); }), 'Archive');
 
   return (
     <Modal title={`Copies of “${title}”`} onClose={onClose}>
       <p className="muted">{active} active cop{active === 1 ? 'y' : 'ies'}. Archive a copy that is lost or damaged. A copy that is checked out or held for a member can't be archived.</p>
       {banner}
+      {dialog}
       <DataTable rows={copies.data ?? []} empty="No copies."
         columns={[
           { header: 'Copy ID', cell: (c) => `#${c.copy_id}` },
