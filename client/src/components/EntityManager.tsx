@@ -1,5 +1,5 @@
 import { FormEvent, ReactNode, useState } from 'react';
-import { Badge, Card, DataTable, Modal, useAction } from './ui';
+import { Badge, Card, DataTable, Modal, useAction, useConfirm } from './ui';
 
 export interface FieldDef {
   key: string;
@@ -40,6 +40,7 @@ export default function EntityManager({ title, noun, rows, idKey, fields, defaul
   const [isNew, setIsNew] = useState(false);
   const [formError, setFormError] = useState('');
   const { run, banner } = useAction();
+  const { confirm, dialog } = useConfirm();
 
   const open = (row?: Record<string, any>) => {
     setIsNew(!row);
@@ -86,9 +87,7 @@ export default function EntityManager({ title, noun, rows, idKey, fields, defaul
           {onDelete && r.is_active !== false && (
             <button
               className="btn small danger"
-              onClick={() => {
-                if (window.confirm(`${deleteLabel} this ${noun.toLowerCase()}?`)) run(() => onDelete(r), `${noun} ${deleteLabel.toLowerCase()}d.`, reload);
-              }}
+              onClick={() => confirm(`${deleteLabel} this ${noun.toLowerCase()}?`, () => run(() => onDelete(r), `${noun} ${deleteLabel.toLowerCase()}d.`, reload), deleteLabel)}
             >
               {deleteLabel}
             </button>
@@ -103,6 +102,7 @@ export default function EntityManager({ title, noun, rows, idKey, fields, defaul
   return (
     <Card title={title} actions={canAdd && <button className="btn primary" onClick={() => open()}>+ Add {noun.toLowerCase()}</button>}>
       {banner}
+      {dialog}
       <DataTable columns={columns} rows={currentRows} empty={archivedRows.length > 0 ? `No active ${noun.toLowerCase()} records.` : `No ${noun.toLowerCase()} records yet.`} />
       {archivedRows.length > 0 && (
         <details>
@@ -166,3 +166,4 @@ export default function EntityManager({ title, noun, rows, idKey, fields, defaul
     </Card>
   );
 }
+
