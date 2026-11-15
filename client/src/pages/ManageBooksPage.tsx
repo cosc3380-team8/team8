@@ -7,7 +7,7 @@ import type { Author, Book } from '../types';
 
 const fullName = (a: Author) => [a.first_name, a.middle_name, a.last_name].filter(Boolean).join(' ');
 const authorLabel = (a: Author) =>
-  a.isbns ? `${fullName(a)} (ISBN ${a.isbns})` : `${fullName(a)} (ID ${a.author_id}, no books yet)`;
+   a.isbns ? `${fullName(a)} (ISBN ${a.isbns})` : `${fullName(a)} (ID ${a.author_id}, no books yet)`;
 
 export default function ManageBooksPage() {
   const books = useLoad(api.listBooks);
@@ -54,7 +54,7 @@ export default function ManageBooksPage() {
           { key: 'first_name', label: 'First name', type: 'text', required: true },
           { key: 'middle_name', label: 'Middle name', type: 'text', hint: 'Optional. Helps tell apart authors with the same name.' },
           { key: 'last_name', label: 'Last name', type: 'text', required: true },
-          { key: 'isbns', label: 'Books (ISBN)', type: 'text', tableOnly: true, render: (r) => r.isbns || `No books yet · ID ${r.author_id}` },
+          { key: 'books', label: 'Books', type: 'text', tableOnly: true, render: (r) => r.books || `No books yet · ID ${r.author_id}` },
         ]}
         onSave={(r) => api.saveAuthor(r as Partial<Author>)}
         onDelete={(r) => api.deleteAuthor(r.author_id)}
