@@ -504,47 +504,6 @@ export async function runReport(database, id, params) {
         };
     }
 
-    if (id === 'activity') {
-        const result = await withFilters(database.request(), f)
-            .query(`
-                SELECT CASE WHEN u.is_faculty = 1 THEN N'Faculty' ELSE N'Student' END AS [Role],
-                       COUNT(DISTINCT u.user_id) AS [Members],
-                       COUNT(l.loan_id) AS [Total loans],
-                       SUM(CASE WHEN l.loan_id IS NOT NULL AND l.return_date IS NULL THEN 1 ELSE 0 END) AS [Active loans],
-                       SUM(CASE WHEN l.return_date IS NULL AND l.due_date < CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'Central Standard Time' AS date) THEN 1 ELSE 0 END) AS [Overdue now],
-                       SUM(CASE WHEN l.return_date > l.due_date THEN 1 ELSE 0 END) AS [Returned late],
-                       CAST(COUNT(l.loan_id) * 1.0 / COUNT(DISTINCT u.user_id) AS decimal(6,2)) AS [Avg loans / member]
-                FROM [user] AS u
-                LEFT JOIN (
-                    SELECT l.loan_id, l.user_id, l.due_date, l.return_date
-                    FROM loan AS l
-                    JOIN copies AS c ON c.copy_id = l.copy_id
-                    LEFT JOIN book AS b ON b.book_id = c.book_id
-                    LEFT JOIN media AS m ON m.media_id = c.media_id
-                    WHERE l.borrow_date BETWEEN CAST(@from AS date) AND CAST(@to AS date)` + ITEM_FILTERS + `
-                ) AS l ON l.user_id = u.user_id
-                WHERE u.is_active = 1` + MEMBER_FILTERS + `
-                GROUP BY u.is_faculty
-                ORDER BY [Role] DESC
-            `);
-
-        const table = toTable(result.recordset);
-        const rows = result.recordset;
-        return {
-            ...table,
-            details: await activityDetails(database, f),
-            stats: [
-                { label: 'Total loans', value: String(rows.reduce((sum, r) => sum + r['Total loans'], 0)) },
-                { label: 'Overdue now', value: String(rows.reduce((sum, r) => sum + r['Overdue now'], 0)) },
-            ],
-            chart: {
-                title: 'Total loans by role',
-                labels: rows.map((r) => r['Role']),
-                values: rows.map((r) => r['Total loans']),
-            },
-        };
-    }
-
     if (id === 'history') {
         const result = await withFilters(database.request(), f)
             .query(`
@@ -581,42 +540,6 @@ export async function runReport(database, id, params) {
                 { label: 'Late or overdue', value: String(late) },
                 { label: 'Fines from these loans', value: money(rows.reduce((sum, r) => sum + Number(r['Fine'] || 0), 0)) },
             ],
-        };
-    }
-
-    if (id === 'authors') {
-        const result = await withFilters(database.request(), { ...f, kind: 'book', authorId: null })
-            .query(`
-                SELECT CONCAT_WS(N' ', a.first_name, a.middle_name, a.last_name) AS [Author],
-                       COUNT(*) AS [Loans],
-                       COUNT(DISTINCT b.book_id) AS [Titles borrowed]
-                FROM loan AS l
-                JOIN [user] AS u ON u.user_id = l.user_id
-                JOIN copies AS c ON c.copy_id = l.copy_id
-                JOIN book AS b ON b.book_id = c.book_id
-                LEFT JOIN media AS m ON m.media_id = c.media_id
-                JOIN book_author AS ba ON ba.book_id = b.book_id
-                JOIN author AS a ON a.author_id = ba.author_id
-                WHERE l.borrow_date BETWEEN CAST(@from AS date) AND CAST(@to AS date)` + MEMBER_FILTERS + ITEM_FILTERS + `
-                GROUP BY a.author_id, a.first_name, a.middle_name, a.last_name
-                ORDER BY [Loans] DESC, [Author]
-            `);
-
-        const table = toTable(result.recordset);
-        const rows = result.recordset;
-        const top = rows.slice(0, 10);
-        return {
-            ...table,
-            details: await authorDetails(database, { ...f, kind: 'book', authorId: null }),
-            stats: [
-                { label: 'Authors borrowed', value: String(rows.length) },
-                { label: 'Most borrowed author', value: rows.length ? rows[0]['Author'] : '-' },
-            ],
-            chart: {
-                title: 'Loans per author',
-                labels: top.map((r) => r['Author']),
-                values: top.map((r) => r['Loans']),
-            },
         };
     }
 
@@ -661,3 +584,4 @@ export async function runReport(database, id, params) {
 
     throw badRequest('Unknown report.');
 }
+
