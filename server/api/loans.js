@@ -51,7 +51,7 @@ export async function listLoans(
   return result.recordset;
 }
 
-export async function checkout(database, { userId, kind, itemId }) {
+export async function checkout(database, { userId, kind, itemId }, { byStaff = false } = {}) {
   userId = Number(userId);
   itemId = Number(itemId);
   if (!userId || !itemId || (kind !== 'book' && kind !== 'media')) {
@@ -85,7 +85,10 @@ export async function checkout(database, { userId, kind, itemId }) {
       ORDER BY l.due_date
     `);
   if (overdue.recordset.length > 0) {
-    const error = new Error(`This member has an overdue item ("${overdue.recordset[0].title}"). It must be returned before they can check out anything else.`);
+    const title = overdue.recordset[0].title;
+    const error = new Error(byStaff
+      ? `This member has an overdue item ("${title}"). It must be returned before they can check out anything else.`
+      : `You have an overdue item. ("${title}"). It must be returned before you can checkout anything else.`);
     error.statusCode = 400;
     throw error;
   }
