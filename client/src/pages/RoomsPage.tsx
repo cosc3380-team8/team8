@@ -85,7 +85,15 @@ import { FormEvent, useState } from 'react';
 import * as api from '../api/api';
 import { useAuth } from '../auth/AuthContext';
 import { Badge, Card, DataTable, PageHeader, useAction, useLoad } from '../components/ui';
-import { addDays, fmtDateTime, today } from '../utils/dates';
+import { addDays, fmtDateTime, pad, today } from '../utils/dates';
+
+// library hours are 8 AM - 10 PM; rooms are booked in fixed 2-hour blocks (8-10, 10-12, ... 8-10 PM)
+const OPEN_HOUR = 8;
+const CLOSE_HOUR = 22;
+const BLOCK_HOURS = 2;
+const BLOCKS = Array.from({ length: (CLOSE_HOUR - OPEN_HOUR) / BLOCK_HOURS }, (_, i) => OPEN_HOUR + i * BLOCK_HOURS);
+const hourLabel = (h: number) => `${h % 12 === 0 ? 12 : h % 12} ${h < 12 || h === 24 ? 'AM' : 'PM'}`;
+const blockLabel = (h: number) => `${hourLabel(h)} – ${hourLabel(h + BLOCK_HOURS)}`;
 
 export default function RoomsPage() {
   const { session, isStaff } = useAuth();
@@ -97,18 +105,22 @@ export default function RoomsPage() {
   const tomorrow = addDays(today(), 1);
   const [roomId, setRoomId] = useState('');
   const [memberId, setMemberId] = useState('');
-  const [start, setStart] = useState(`${tomorrow}T10:00`);
-  const [end, setEnd] = useState(`${tomorrow}T11:00`);
+  const [day, setDay] = useState(tomorrow);
+  const [block, setBlock] = useState(String(OPEN_HOUR));
+  const startHour = Number(block);
+  const start = `${day}T${pad(startHour)}:00`;
+  const end = `${day}T${pad(startHour + BLOCK_HOURS)}:00`;
 
   const all = res.data ?? [];
   const upcoming = all.filter((r) => !r.archived);
   const archived = all.filter((r) => r.archived).reverse();
 
   // rooms already booked on the chosen day; a room booked at the chosen time is left out of the list
-  const day = start.slice(0, 10);
   const times = useLoad(() => api.listRoomAvailability(day), [day]);
-  const isFree = (id: number) => end <= start || !(times.data?.bookings ?? []).some(
+  const isFree = (id: number) => !(times.data?.bookings ?? []).some(
     (b) => b.room_id === id && b.start_time < end && b.end_time > start);
+  // blocks that have already started today can't be booked
+  const isPastBlock = (h: number) => !!times.data && `${day}T${pad(h)}:00` < times.data.now;
   const freeRooms = (rooms.data ?? []).filter((r) => r.is_active && isFree(r.room_id));
   const pickedRoom = freeRooms.some((r) => String(r.room_id) === roomId) ? roomId : '';
 
@@ -118,6 +130,7 @@ export default function RoomsPage() {
     // one room booking per member per day (the server checks this too)
     const bookedThatDay = all.some((r) => r.user_id === uid && r.is_active !== false && r.start_time.slice(0, 10) === day);
     run(async () => {
+      if (isPastBlock(startHour)) throw new Error('That time has already started. Choose a later time.');
       if (bookedThatDay) throw new Error('You have reached your room booking limit for that day.');
       await api.doReserveRoom(uid, Number(pickedRoom), start, end);
     }, 'Room reserved.', () => { res.reload(); times.reload(); });
@@ -145,8 +158,14 @@ export default function RoomsPage() {
               </select>
             </label>
           )}
-          <label><span>Start</span><input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} required /></label>
-          <label><span>End</span><input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} required /></label>
+          <label><span>Date</span><input type="date" value={day} min={today()} onChange={(e) => e.target.value && setDay(e.target.value)} required /></label>
+          <label><span>Time (2 hours)</span>
+            <select value={block} onChange={(e) => setBlock(e.target.value)} required>
+              {BLOCKS.map((h) => (
+                <option key={h} value={h} disabled={isPastBlock(h)}>{blockLabel(h)}{isPastBlock(h) ? ' (past)' : ''}</option>
+              ))}
+            </select>
+          </label>
           <button className="btn primary">Reserve</button>
         </form>
       </Card>
@@ -176,4 +195,3 @@ export default function RoomsPage() {
     </>
   );
 }
-
