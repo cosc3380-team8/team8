@@ -104,7 +104,7 @@ export default function ReportsPage() {
             <label><span>Author</span>
               <select value={filters.authorId ?? ''} onChange={(e) => set('authorId', e.target.value)}>
                 <option value="">Any author</option>
-                {(authors.data ?? []).map((a) => <option key={a.author_id} value={a.author_id}>{[a.first_name, a.middle_name, a.last_name].filter(Boolean).join(' ')} {a.isbns ? `(ISBN ${a.isbns})` : `(ID ${a.author_id})`}</option>)}
+                {(authors.data ?? []).map((a) => <option key={a.author_id} value={a.author_id}>{[a.first_name, a.middle_name, a.last_name].filter(Boolean).join(' ')} {a.books ? `(ISBN ${a.books})` : `(ID ${a.author_id})`}</option>)}
               </select>
             </label>
           )}
