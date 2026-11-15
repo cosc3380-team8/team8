@@ -7,7 +7,8 @@ import type { Author, Book } from '../types';
 
 const fullName = (a: Author) => [a.first_name, a.middle_name, a.last_name].filter(Boolean).join(' ');
 const authorLabel = (a: Author) =>
-   a.isbns ? `${fullName(a)} (ISBN ${a.isbns})` : `${fullName(a)} (ID ${a.author_id}, no books yet)`;
+a.books ? `${fullName(a)} (Books: ${a.books})` : `${fullName(a)} (ID ${a.author_id}, no books yet)`;
+
 
 export default function ManageBooksPage() {
   const books = useLoad(api.listBooks);
