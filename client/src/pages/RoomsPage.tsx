@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+/*import { FormEvent, useState } from 'react';
 import * as api from '../api/api';
 import { useAuth } from '../auth/AuthContext';
 import { Badge, Card, DataTable, PageHeader, useAction, useLoad } from '../components/ui';
@@ -79,4 +79,101 @@ export default function RoomsPage() {
       </Card>
     </>
   );
+} */ 
+
+import { FormEvent, useState } from 'react';
+import * as api from '../api/api';
+import { useAuth } from '../auth/AuthContext';
+import { Badge, Card, DataTable, PageHeader, useAction, useLoad } from '../components/ui';
+import { addDays, fmtDateTime, today } from '../utils/dates';
+
+export default function RoomsPage() {
+  const { session, isStaff } = useAuth();
+  const rooms = useLoad(api.listRooms);
+  const members = useLoad(() => (isStaff ? api.listMembers() : Promise.resolve([])), [isStaff]);
+  const res = useLoad(() => api.listReservations(isStaff ? undefined : session!.id), [isStaff, session?.id]);
+  const { run, banner } = useAction();
+
+  const tomorrow = addDays(today(), 1);
+  const [roomId, setRoomId] = useState('');
+  const [memberId, setMemberId] = useState('');
+  const [start, setStart] = useState(`${tomorrow}T10:00`);
+  const [end, setEnd] = useState(`${tomorrow}T11:00`);
+
+  const all = res.data ?? [];
+  const upcoming = all.filter((r) => !r.archived);
+  const archived = all.filter((r) => r.archived).reverse();
+
+  // rooms already booked on the chosen day; a room booked at the chosen time is left out of the list
+  const day = start.slice(0, 10);
+  const times = useLoad(() => api.listRoomAvailability(day), [day]);
+  const isFree = (id: number) => end <= start || !(times.data?.bookings ?? []).some(
+    (b) => b.room_id === id && b.start_time < end && b.end_time > start);
+  const freeRooms = (rooms.data ?? []).filter((r) => r.is_active && isFree(r.room_id));
+  const pickedRoom = freeRooms.some((r) => String(r.room_id) === roomId) ? roomId : '';
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    const uid = isStaff ? Number(memberId) : session!.id;
+    // one room booking per member per day (the server checks this too)
+    const bookedThatDay = all.some((r) => r.user_id === uid && r.is_active !== false && r.start_time.slice(0, 10) === day);
+    run(async () => {
+      if (bookedThatDay) throw new Error('You have reached your room booking limit for that day.');
+      await api.doReserveRoom(uid, Number(pickedRoom), start, end);
+    }, 'Room reserved.', () => { res.reload(); times.reload(); });
+  };
+
+  return (
+    <>
+      <PageHeader title="Study Rooms" subtitle="Reserve a room. The same room cannot be booked for overlapping times." />
+      {banner}
+      <Card title="New reservation">
+        <form className="form inline" onSubmit={submit}>
+          <label><span>Room</span>
+            <select value={pickedRoom} onChange={(e) => setRoomId(e.target.value)} required>
+              <option value="" disabled>{freeRooms.length ? 'Select…' : 'No rooms free at this time'}</option>
+              {freeRooms.map((r) => (
+                <option key={r.room_id} value={r.room_id}>Room {r.room_number} · level {r.room_level} · seats {r.capacity}</option>
+              ))}
+            </select>
+          </label>
+          {isStaff && (
+            <label><span>Member</span>
+              <select value={memberId} onChange={(e) => setMemberId(e.target.value)} required>
+                <option value="" disabled>Select…</option>
+                {(members.data ?? []).filter((m) => m.is_active).map((m) => <option key={m.user_id} value={m.user_id}>{m.first_name} {m.last_name}</option>)}
+              </select>
+            </label>
+          )}
+          <label><span>Start</span><input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} required /></label>
+          <label><span>End</span><input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} required /></label>
+          <button className="btn primary">Reserve</button>
+        </form>
+      </Card>
+      <Card title={isStaff ? 'Upcoming reservations' : 'My upcoming reservations'}>
+        <DataTable rows={upcoming} empty="No upcoming reservations."
+          columns={[
+            { header: 'Room', cell: (r) => r.room_number },
+            { header: 'Member', cell: (r) => r.member_name },
+            { header: 'From', cell: (r) => fmtDateTime(r.start_time) },
+            { header: 'To', cell: (r) => fmtDateTime(r.end_time) },
+            { header: '', cell: (r) => <button className="btn small danger" onClick={() => { if (window.confirm(`Cancel the booking for room ${r.room_number}?`)) run(() => api.cancelReservation(r.reservation_id), 'Reservation cancelled.', () => { res.reload(); times.reload(); }); }}>Cancel</button> },
+          ]} />
+      </Card>
+      <Card title={`Archived reservations (${archived.length})`}>
+        <details>
+          <summary>Show past and cancelled reservations</summary>
+          <DataTable rows={archived} empty="No past reservations."
+            columns={[
+              { header: 'Room', cell: (r) => r.room_number },
+              { header: 'Member', cell: (r) => r.member_name },
+              { header: 'From', cell: (r) => fmtDateTime(r.start_time) },
+              { header: 'To', cell: (r) => fmtDateTime(r.end_time) },
+              { header: 'Status', cell: (r) => r.is_active === false ? <Badge tone="red">Cancelled</Badge> : <Badge tone="gray">Completed</Badge> },
+            ]} />
+        </details>
+      </Card>
+    </>
+  );
 }
+
