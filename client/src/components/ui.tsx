@@ -67,6 +67,22 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
   );
 }
 
+
+export function useConfirm() {
+  const [ask, setAsk] = useState<{ message: string; yes: string; onYes: () => void } | null>(null);
+  const confirm = (message: string, onYes: () => void, yes = 'Yes') => setAsk({ message, yes, onYes });
+  const dialog = ask && (
+    <Modal title="Please confirm" onClose={() => setAsk(null)}>
+      <p>{ask.message}</p>
+      <div className="row gap end">
+        <button className="btn" onClick={() => setAsk(null)}>Cancel</button>
+        <button className="btn primary" onClick={() => { const yes = ask.onYes; setAsk(null); yes(); }}>{ask.yes}</button>
+      </div>
+    </Modal>
+  );
+  return { confirm, dialog };
+}
+
 export function Card({ title, children, actions }: { title?: string; children: ReactNode; actions?: ReactNode }) {
   return (
     <section className="card">
@@ -150,3 +166,4 @@ export function useAction() {
   const banner = msg && <Alert kind={msg.kind} onClose={() => setMsg(null)}>{msg.text}</Alert>;
   return { run, banner, setMsg };
 }
+
