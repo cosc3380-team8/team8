@@ -28,7 +28,7 @@ export interface Author {
   author_id: number;
   first_name: string;
   middle_name?: string | null;
-  isbns?: string | null;
+  books?: string | null;
   last_name: string;
 }
 
