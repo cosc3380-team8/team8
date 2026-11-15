@@ -145,22 +145,6 @@ ${loanWhere(f, 'l.borrow_date')}
 ORDER BY l.borrow_date DESC;`,
   },
   {
-    id: 'authors',
-    title: 'Borrowing by author',
-    description: 'Which authors are borrowed most, and how many of their titles were borrowed.',
-    filters: ['from', 'to', 'userId', 'role', 'keyword'],
-    dateLabel: 'Borrowed',
-    sql: (f) => `SELECT a.first_name + ' ' + a.last_name AS author,
-       COUNT(*) AS loans,
-       COUNT(DISTINCT b.book_id) AS titles_borrowed
-${LOAN_ITEM_JOIN}
-JOIN book_authors ba ON ba.book_id = b.book_id
-JOIN authors a       ON a.author_id = ba.author_id
-${loanWhere({ ...f, kind: undefined, authorId: undefined }, 'l.borrow_date')}
-GROUP BY a.author_id, a.first_name, a.last_name
-ORDER BY loans DESC;`,
-  },
-  {
     id: 'fines',
     title: 'Fines by month',
     description: 'Fines assessed, collected and still outstanding, grouped by the month the item came back.',
@@ -181,27 +165,6 @@ LEFT JOIN media_items mi  ON mi.media_id = mc.media_id
 ${loanWhere(f, 'l.return_date')}
 GROUP BY FORMAT(l.return_date, 'yyyy-MM')
 ORDER BY month;`,
-  },
-  {
-    id: 'activity',
-    title: 'Borrowing activity by member role',
-    description: 'Compares students and faculty: loan volume, current loans, overdue items and average loans per member.',
-    filters: ['from', 'to', 'role', 'authorId', 'keyword', 'kind'],
-    dateLabel: 'Borrowed',
-    sql: (f) => `SELECT u.role,
-       COUNT(DISTINCT u.user_id) AS members,
-       COUNT(l.loan_id) AS total_loans,
-       SUM(CASE WHEN l.return_date IS NULL THEN 1 ELSE 0 END) AS active_loans,
-       SUM(CASE WHEN l.return_date IS NULL AND l.due_date < CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END) AS overdue_now,
-       CAST(COUNT(l.loan_id) AS FLOAT) / COUNT(DISTINCT u.user_id) AS avg_loans_per_member
-FROM members u
-LEFT JOIN loans l ON l.user_id = u.user_id
-LEFT JOIN book_copies bc  ON bc.copy_id = l.book_copy_id
-LEFT JOIN books b         ON b.book_id = bc.book_id
-LEFT JOIN media_copies mc ON mc.media_copy_id = l.media_copy_id
-LEFT JOIN media_items mi  ON mi.media_id = mc.media_id
-${loanWhere(f, 'l.borrow_date', ['u.is_active = 1'])}
-GROUP BY u.role;`,
   },
   {
     id: 'inventory',
@@ -249,4 +212,5 @@ export async function runReport(id: string, f: ReportFilters = {}): Promise<Repo
   def.filters.forEach((k) => { if (f[k]) used[k] = f[k]; });
   return request<ReportResult>(`/reports/${id}${toSearch({ ...used })}`);
 }
+
 
