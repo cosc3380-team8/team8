@@ -411,10 +411,10 @@ export async function listReportAuthors(database) {
         .request()
         .query(`
             SELECT a.author_id, a.first_name, a.middle_name, a.last_name,
-                   (SELECT STRING_AGG(b.isbn, N', ')
+                   (SELECT STRING_AGG(b.title, N', ') WITHIN GROUP (ORDER BY b.title)
                     FROM book_author AS ba
                     JOIN book AS b ON b.book_id = ba.book_id
-                    WHERE ba.author_id = a.author_id AND b.isbn IS NOT NULL) AS isbns
+                    WHERE ba.author_id = a.author_id) AS books
             FROM author AS a
             WHERE EXISTS (SELECT 1 FROM book_author AS ba WHERE ba.author_id = a.author_id)
             ORDER BY a.last_name, a.first_name
