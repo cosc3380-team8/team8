@@ -23,7 +23,6 @@ admin can see everything (reports, staff page). employee does the desk stuff (ch
 | `client/` | the website (react + typescript, built with vite) |
 | `server/` | the api (node.js, runs as vercel functions, talks to azure sql) |
 | `team8_dump.sql` | full dump of our azure database with all the data. use this one to install the database |
-| `PROJECT_DOC.md` | the project document (data, user roles, triggers, queries/reports) |
 | `team8_azure.sql` | the tables, keys and constraints we started with on azure |
 | `team8_azure_procedures.sql`, `team8_azure_seed.sql`, `team8_demo_accounts.sql` | stored procedures, starter data and the demo logins |
 | `team8_azure_migration*.sql` | changes we made after (triggers, fines, holds, etc). they are numbered in the order we ran them |
