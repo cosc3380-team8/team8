@@ -18,10 +18,10 @@ export async function listAuthors(database, search = '') {
                         a.first_name,
                         a.middle_name, 
                         a.last_name,
-                        (SELECT STRING_AGG(b.isbn, N', ')
+                        (SELECT STRING_AGG(b.title, N', ') WITHIN GROUP (ORDER BY b.title)
                          FROM book_author AS ba
                          JOIN book AS b ON b.book_id = ba.book_id
-                         WHERE ba.author_id = a.author_id AND b.isbn IS NOT NULL) AS isbns
+                         WHERE ba.author_id = a.author_id) As books
 
                     FROM author AS a
                     WHERE (a.first_name LIKE N'%' + @search + N'%'
